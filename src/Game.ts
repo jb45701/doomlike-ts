@@ -2,10 +2,10 @@
  * Game — main loop, lifecycle, and ECS world management.
  *
  * This is the heart of the game. It owns the ECS world, player entity,
- * and the per-frame system pipeline.
+ * renderer, physics world, and the per-frame system pipeline.
  *
  * Lifecycle:
- *   const game = createGame(canvas);
+ *   const game = await createGame(canvas);
  *   game.start();
  *   // ... runs until stop()
  *   game.stop();
@@ -28,6 +28,8 @@ import { InputSystem } from './systems/InputSystem';
 import { MovementSystem } from './systems/MovementSystem';
 import { createRenderer } from './renderer/Renderer';
 import type { RenderContext } from './renderer/Renderer';
+import { createRapierWorld } from './physics/RapierWorld';
+import type { RapierContext } from './physics/RapierWorld';
 
 /** Max frame delta to prevent spiral-of-death after a long pause (seconds). */
 const MAX_DT = 0.1;
@@ -38,6 +40,7 @@ export interface GameState {
   world: EcsWorld;
   player: number;
   renderer: RenderContext;
+  physics: RapierContext;
   running: boolean;
   lastTime: number;
   rafId: number | null;
@@ -48,12 +51,15 @@ export interface GameState {
 
 // ── Factory ─────────────────────────────────────────────────────────────────
 
-export function createGame(canvas: HTMLCanvasElement): GameState {
+export async function createGame(canvas: HTMLCanvasElement): Promise<GameState> {
   // ── ECS world ──────────────────────────────────────────────────────────
   const world = createEcsWorld();
 
   // ── Renderer ───────────────────────────────────────────────────────────
   const renderer = createRenderer(canvas);
+
+  // ── Physics world ──────────────────────────────────────────────────────
+  const physics = await createRapierWorld();
 
   // ── Player entity ──────────────────────────────────────────────────────
   const player = createEntity(world);
@@ -102,13 +108,16 @@ export function createGame(canvas: HTMLCanvasElement): GameState {
     // 2. MovementSystem — reads InputState → updates Velocity + Position
     MovementSystem(world, dt);
 
-    // 3. End frame — snapshot prev-state for edge detection next tick
+    // 3. Physics step — advance Rapier simulation (collision resolution)
+    physics.step(dt);
+
+    // 4. End frame — snapshot prev-state for edge detection next tick
     InputManager.endFrame();
 
-    // 4. Sync camera to player entity
+    // 5. Sync camera to player entity
     renderer.syncCamera(world);
 
-    // 5. Render
+    // 6. Render
     renderer.render();
   }
 
@@ -132,7 +141,8 @@ export function createGame(canvas: HTMLCanvasElement): GameState {
     stop();
     InputManager.dispose();
     renderer.dispose();
+    physics.dispose();
   };
 
-  return { world, player, renderer, running, lastTime, rafId, start, stop, dispose };
+  return { world, player, renderer, physics, running, lastTime, rafId, start, stop, dispose };
 }
