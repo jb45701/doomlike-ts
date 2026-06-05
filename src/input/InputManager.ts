@@ -1,16 +1,14 @@
 /**
- * InputManager — global input state tracker.
+ * InputManager — global input state tracker for the Doomlike FPS.
  *
- * Tracks raw keyboard/mouse state for the game loop. The InputSystem
- * reads from this module each frame and writes to the ECS InputState
- * component on the player entity.
+ * A singleton module that tracks raw keyboard and mouse state.
+ * The InputSystem reads from this each frame and writes to ECS components.
  *
  * Lifecycle:
- *   import { init, resetMouseDelta, endFrame, dispose } from './input/InputManager';
+ *   import { init, endFrame, dispose } from './input/InputManager';
  *   init(canvas);
  *   // ... each frame ...
- *   resetMouseDelta();
- *   endFrame();
+ *   endFrame();  // snapshots key state for edge detection
  *   // ... on shutdown ...
  *   dispose();
  */
@@ -26,8 +24,6 @@ export interface MouseDelta {
 
 const _keysDown = new Set<string>();
 const _prevKeysDown = new Set<string>();
-const _mouseButtonsDown = new Set<number>();
-const _prevMouseButtonsDown = new Set<number>();
 
 let _mouseDeltaX = 0;
 let _mouseDeltaY = 0;
@@ -38,8 +34,6 @@ let _canvas: HTMLCanvasElement | null = null;
 
 let _onKeyDown: ((e: KeyboardEvent) => void) | null = null;
 let _onKeyUp: ((e: KeyboardEvent) => void) | null = null;
-let _onMouseDown: ((e: MouseEvent) => void) | null = null;
-let _onMouseUp: ((e: MouseEvent) => void) | null = null;
 let _onMouseMove: ((e: MouseEvent) => void) | null = null;
 let _onPointerLockChange: (() => void) | null = null;
 let _onPointerLockError: (() => void) | null = null;
@@ -47,6 +41,7 @@ let _onVisibilityChange: (() => void) | null = null;
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
+/** Attach event listeners to the document and canvas. Call once on startup. */
 export function init(canvas: HTMLCanvasElement): void {
   if (_canvas) {
     console.warn('[InputManager] Already initialised — call dispose() first');
@@ -64,16 +59,6 @@ export function init(canvas: HTMLCanvasElement): void {
     _keysDown.delete(e.code);
   };
   document.addEventListener('keyup', _onKeyUp);
-
-  _onMouseDown = (e: MouseEvent) => {
-    _mouseButtonsDown.add(e.button);
-  };
-  document.addEventListener('mousedown', _onMouseDown);
-
-  _onMouseUp = (e: MouseEvent) => {
-    _mouseButtonsDown.delete(e.button);
-  };
-  document.addEventListener('mouseup', _onMouseUp);
 
   _onMouseMove = (e: MouseEvent) => {
     if (_isPointerLocked) {
@@ -100,7 +85,7 @@ export function init(canvas: HTMLCanvasElement): void {
   _onVisibilityChange = () => {
     if (document.hidden) {
       _keysDown.clear();
-      _mouseButtonsDown.clear();
+      _prevKeysDown.clear();
       _mouseDeltaX = 0;
       _mouseDeltaY = 0;
     }
@@ -108,11 +93,10 @@ export function init(canvas: HTMLCanvasElement): void {
   document.addEventListener('visibilitychange', _onVisibilityChange);
 }
 
+/** Remove all event listeners and reset state. Safe to call multiple times. */
 export function dispose(): void {
   if (_onKeyDown) document.removeEventListener('keydown', _onKeyDown);
   if (_onKeyUp) document.removeEventListener('keyup', _onKeyUp);
-  if (_onMouseDown) document.removeEventListener('mousedown', _onMouseDown);
-  if (_onMouseUp) document.removeEventListener('mouseup', _onMouseUp);
   if (_onMouseMove) document.removeEventListener('mousemove', _onMouseMove);
   if (_onPointerLockChange) document.removeEventListener('pointerlockchange', _onPointerLockChange);
   if (_onPointerLockError) document.removeEventListener('pointerlockerror', _onPointerLockError);
@@ -120,8 +104,6 @@ export function dispose(): void {
 
   _onKeyDown = null;
   _onKeyUp = null;
-  _onMouseDown = null;
-  _onMouseUp = null;
   _onMouseMove = null;
   _onPointerLockChange = null;
   _onPointerLockError = null;
@@ -129,36 +111,36 @@ export function dispose(): void {
 
   _keysDown.clear();
   _prevKeysDown.clear();
-  _mouseButtonsDown.clear();
-  _prevMouseButtonsDown.clear();
   _mouseDeltaX = 0;
   _mouseDeltaY = 0;
   _isPointerLocked = false;
   _canvas = null;
 }
 
+/** Request pointer lock on the game canvas. */
 export function requestPointerLock(): void {
   if (_canvas) {
     _canvas.requestPointerLock();
   }
 }
 
+/** Returns true if the given key is currently held down. */
 export function isKeyDown(key: string): boolean {
   return _keysDown.has(key);
 }
 
+/**
+ * Returns true on the *first frame* the key was pressed.
+ * Only true once per press — must release and press again.
+ */
 export function wasKeyPressed(key: string): boolean {
   return _keysDown.has(key) && !_prevKeysDown.has(key);
 }
 
-export function isMouseButtonDown(button: number): boolean {
-  return _mouseButtonsDown.has(button);
-}
-
-export function wasMouseButtonPressed(button: number): boolean {
-  return _mouseButtonsDown.has(button) && !_prevMouseButtonsDown.has(button);
-}
-
+/**
+ * Returns the accumulated mouse delta since the last call
+ * and resets the accumulator to zero.
+ */
 export function resetMouseDelta(): MouseDelta {
   const delta: MouseDelta = { x: _mouseDeltaX, y: _mouseDeltaY };
   _mouseDeltaX = 0;
@@ -166,18 +148,19 @@ export function resetMouseDelta(): MouseDelta {
   return delta;
 }
 
+/** Returns whether pointer lock is currently active. */
 export function isPointerLocked(): boolean {
   return _isPointerLocked;
 }
 
+/**
+ * Called at the end of each frame by the game loop.
+ * Snapshots current key state so wasKeyPressed() detects new presses
+ * correctly on the next frame.
+ */
 export function endFrame(): void {
   _prevKeysDown.clear();
   for (const k of _keysDown) {
     _prevKeysDown.add(k);
-  }
-
-  _prevMouseButtonsDown.clear();
-  for (const b of _mouseButtonsDown) {
-    _prevMouseButtonsDown.add(b);
   }
 }
