@@ -5,7 +5,7 @@ import { PlayerTag, Position, Rotation, Velocity, InputState, RigidBody, Health 
 import { InputSystem } from './systems/InputSystem';
 import { MovementSystem } from './systems/MovementSystem';
 import { createRenderer } from './renderer/Renderer';
-
+/** Max frame delta to prevent spiral-of-death after a long pause (seconds). */
 const MAX_DT = 0.1;
 
 export interface GameContext {
