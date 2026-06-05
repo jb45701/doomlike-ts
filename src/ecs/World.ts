@@ -1,14 +1,17 @@
 import { createWorld, addEntity, removeEntity, entityExists } from 'bitecs';
-import type { World as BitecsWorld } from 'bitecs';
 
-// ── Types ────────────────────────────────────────────────
-/** The world object used throughout the ECS. */
-export type EcsWorld = BitecsWorld;
+export type EcsWorld = ReturnType<typeof createWorld>;
 
-export function createEntity(world: World): EntityId {
+export function createEcsWorld(): EcsWorld {
+  return createWorld();
+}
+
+export function createEntity(world: EcsWorld): number {
   return addEntity(world);
 }
 
-export function destroyEntity(world: World, eid: EntityId): void {
-  removeEntity(world, eid);
+export function destroyEntity(world: EcsWorld, eid: number): void {
+  if (entityExists(world, eid)) {
+    removeEntity(world, eid);
+  }
 }

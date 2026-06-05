@@ -1,36 +1,182 @@
-import { Types, defineComponent } from 'bitecs/legacy';
+/**
+ * ECS Components for the Doomlike FPS.
+ *
+ * Each component is defined as a plain object with typed array fields.
+ * This is the native bitecs 0.4.0 SoA (Structure of Arrays) pattern.
+ *
+ * Usage (bitecs main API, not legacy):
+ *   import { addComponent, setComponent } from 'bitecs';
+ *   addComponent(world, eid, Position);
+ *   Position.x[eid] = 10;
+ *   Position.y[eid] = 41;
+ *   Position.z[eid] = -128;
+ *
+ * Tag/marker components (like PlayerTag) have no fields — empty objects.
+ */
 
-export interface Vec3 { x: number; y: number; z: number }
+// ═══════════════════════════════════════════════════════════════════════════
+//  Enum Constants
+// ═══════════════════════════════════════════════════════════════════════════
 
-export const Position = defineComponent({ x: Types.f32, y: Types.f32, z: Types.f32 });
-export const Rotation = defineComponent({ yaw: Types.f32, pitch: Types.f32, roll: Types.f32 });
-export const Velocity = defineComponent({ dx: Types.f32, dy: Types.f32, dz: Types.f32 });
+/** Collision shape identifiers (stored as number/uint8 in SoA arrays). */
+export const ColliderShape = { Capsule: 0, Box: 1, Sphere: 2, Ray: 3 } as const;
 
-export const Collider = defineComponent({ shape: Types.ui8, radius: Types.f32, height: Types.f32, halfExtentX: Types.f32, halfExtentY: Types.f32, halfExtentZ: Types.f32 });
-export const RigidBody = defineComponent({ mass: Types.f32, grounded: Types.ui8 });
+/** Renderable visual kind identifiers. */
+export const RenderableKind = { Billboard: 0, Mesh: 1, StaticMesh: 2 } as const;
 
-export const Renderable = defineComponent({ kind: Types.ui8, scale: Types.f32, brightness: Types.f32 });
-export const renderableResourceId = new Map<number, string>();
+/** Enemy AI behavior state identifiers. */
+export const Behavior = { Idle: 0, Patrol: 1, Pursue: 2, Attack: 3, Pain: 4, Death: 5 } as const;
 
-export const AnimState = defineComponent({ frame: Types.i32, timer: Types.f32, fps: Types.f32 });
-export const animStateCurrent = new Map<number, string>();
+/** Weapon kind identifiers. */
+export const WeaponKind = { Fist: 0, Pistol: 1, Shotgun: 2, Chaingun: 3, RocketLauncher: 4, PlasmaRifle: 5, SuperShotgun: 6, Chainsaw: 7 } as const;
 
-export const Health = defineComponent({ current: Types.f32, max: Types.f32, armor: Types.f32 });
-export const Damage = defineComponent({ amount: Types.f32, source: Types.eid, knockbackX: Types.f32, knockbackY: Types.f32, knockbackZ: Types.f32 });
+/** Pickup kind identifiers. */
+export const PickupKind = { Health: 0, Armor: 1, Ammo: 2, Weapon: 3, Key: 4 } as const;
 
-export const WeaponState = defineComponent({ kind: Types.ui8, ammo: Types.i32, maxAmmo: Types.i32, cooldown: Types.f32, firing: Types.ui8, reloading: Types.ui8, reloadTimer: Types.f32 });
-export const weaponStateKindName = new Map<number, string>();
+// ═══════════════════════════════════════════════════════════════════════════
+//  Spatial Components
+// ═══════════════════════════════════════════════════════════════════════════
 
-export const EnemyAI = defineComponent({ behavior: Types.ui8, target: Types.eid, sightRange: Types.f32, attackRange: Types.f32, speed: Types.f32, painChance: Types.f32, lastKnownPosX: Types.f32, lastKnownPosY: Types.f32, lastKnownPosZ: Types.f32 });
-export const enemyPatrolPath = new Map<number, Vec3[]>();
+/** World-space position. Default: (0, 0, 0) */
+export const Position = { x: [] as number[], y: [] as number[], z: [] as number[] };
 
-export const Pickup = defineComponent({ kind: Types.ui8, amount: Types.f32, respawn: Types.ui8 });
-export const pickupSubKind = new Map<number, string>();
+/** Euler rotation (radians). Default: yaw=0, pitch=0, roll=0 */
+export const Rotation = { yaw: [] as number[], pitch: [] as number[], roll: [] as number[] };
 
-export const Door = defineComponent({ open: Types.ui8, speed: Types.f32, openHeight: Types.f32, currentOffset: Types.f32, sectorId: Types.i32 });
+/** Linear velocity (units/sec). Default: (0, 0, 0) */
+export const Velocity = { dx: [] as number[], dy: [] as number[], dz: [] as number[] };
 
-export const PlayerTag = defineComponent({});
-export const InputState = defineComponent({ forward: Types.ui8, back: Types.ui8, left: Types.ui8, right: Types.ui8, jump: Types.ui8, crouch: Types.ui8, fire: Types.ui8, altFire: Types.ui8, use: Types.ui8, nextWeapon: Types.ui8, prevWeapon: Types.ui8, weaponSlot1: Types.ui8, weaponSlot2: Types.ui8, weaponSlot3: Types.ui8, weaponSlot4: Types.ui8, weaponSlot5: Types.ui8, weaponSlot6: Types.ui8, weaponSlot7: Types.ui8, mouseX: Types.f32, mouseY: Types.f32 });
+// ═══════════════════════════════════════════════════════════════════════════
+//  Physics Components
+// ═══════════════════════════════════════════════════════════════════════════
 
-export const DespawnTimer = defineComponent({ remaining: Types.f32 });
-export const FlashTimer = defineComponent({ remaining: Types.f32, targetBrightness: Types.f32 });
+/** Collision shape. Default: capsule, radius=16, height=20 */
+export const Collider = {
+  shape: [] as number[],
+  radius: [] as number[],
+  height: [] as number[],
+  halfExtentX: [] as number[],
+  halfExtentY: [] as number[],
+  halfExtentZ: [] as number[],
+};
+
+/** Rigid body. Default: mass=1, grounded=false */
+export const RigidBody = { mass: [] as number[], grounded: [] as boolean[] };
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Rendering Components
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Visual representation. Default: billboard, scale=1, brightness=0 */
+export const Renderable = {
+  kind: [] as number[],
+  resourceId: [] as string[],
+  scale: [] as number[],
+  brightness: [] as number[],
+};
+
+/** Sprite/mesh animation state. Default: frame=0, timer=0, fps=10 */
+export const AnimState = {
+  current: [] as string[],
+  frame: [] as number[],
+  timer: [] as number[],
+  fps: [] as number[],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Gameplay Components
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Hit-points. Default: current=100, max=100, armor=0 */
+export const Health = { current: [] as number[], max: [] as number[], armor: [] as number[] };
+
+/** Damage payload. Default: amount=0, source=0, no knockback */
+export const Damage = {
+  amount: [] as number[],
+  source: [] as number[],
+  knockbackX: [] as number[],
+  knockbackY: [] as number[],
+  knockbackZ: [] as number[],
+};
+
+/** Weapon configuration. Default: fist, ammo=0, maxAmmo=0, cooldown=0 */
+export const WeaponState = {
+  kind: [] as number[],
+  ammo: [] as number[],
+  maxAmmo: [] as number[],
+  cooldown: [] as number[],
+  firing: [] as boolean[],
+  reloading: [] as boolean[],
+  reloadTimer: [] as number[],
+};
+
+/** Enemy AI state. Default: idle, no target, sightRange=512, attackRange=128, speed=96, painChance=0.3 */
+export const EnemyAI = {
+  behavior: [] as number[],
+  target: [] as number[],
+  sightRange: [] as number[],
+  attackRange: [] as number[],
+  speed: [] as number[],
+  painChance: [] as number[],
+  lastKnownX: [] as number[],
+  lastKnownY: [] as number[],
+  lastKnownZ: [] as number[],
+};
+
+/** World pickup. Default: health, amount=10, respawn=false */
+export const Pickup = {
+  kind: [] as number[],
+  subKind: [] as string[],
+  amount: [] as number[],
+  respawn: [] as boolean[],
+};
+
+/** Sector door. Default: closed, speed=48, openHeight=128, offset=0, sectorId=0 */
+export const Door = {
+  open: [] as boolean[],
+  speed: [] as number[],
+  openHeight: [] as number[],
+  currentOffset: [] as number[],
+  sectorId: [] as number[],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Player Components
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Marker component — exactly one entity has this. Empty object (no data). */
+export const PlayerTag = {};
+
+/** Raw input state. Default: all false, mouse=(0, 0) */
+export const InputState = {
+  forward: [] as boolean[],
+  back: [] as boolean[],
+  left: [] as boolean[],
+  right: [] as boolean[],
+  jump: [] as boolean[],
+  crouch: [] as boolean[],
+  fire: [] as boolean[],
+  altFire: [] as boolean[],
+  use: [] as boolean[],
+  nextWeapon: [] as boolean[],
+  prevWeapon: [] as boolean[],
+  weaponSlot1: [] as boolean[],
+  weaponSlot2: [] as boolean[],
+  weaponSlot3: [] as boolean[],
+  weaponSlot4: [] as boolean[],
+  weaponSlot5: [] as boolean[],
+  weaponSlot6: [] as boolean[],
+  weaponSlot7: [] as boolean[],
+  mouseX: [] as number[],
+  mouseY: [] as number[],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Lifecycle Components
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Despawn timer. Default: remaining=0 (immediate if not set) */
+export const DespawnTimer = { remaining: [] as number[] };
+
+/** Visual flash timer. Default: remaining=0, brightness=0 */
+export const FlashTimer = { remaining: [] as number[], targetBrightness: [] as number[] };

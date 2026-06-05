@@ -75,6 +75,8 @@ export function queryDamageEntities(world: World): Entities {
 }
 
 export function queryDeadEntities(world: World): Entities {
+  // Matches entities with Health but no pending Damage component.
+  // Systems must still check Health.current[eid] <= 0 to find dead entities.
   return query(world, [Health, Not(Damage)]);
 }
 
