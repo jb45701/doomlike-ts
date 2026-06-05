@@ -72,6 +72,10 @@ export function init(canvas: HTMLCanvasElement): void {
   _onPointerLockError = () => { console.warn('[InputManager] Pointer lock denied'); };
   document.addEventListener('pointerlockerror', _onPointerLockError);
 
+  /* Wire overlay click to initiate pointer lock */
+  const overlay = document.getElementById('overlay');
+  if (overlay) overlay.addEventListener('click', () => canvas.requestPointerLock());
+
   _onVisibilityChange = () => {
     if (document.hidden) { _keysDown.clear(); _mouseDeltaX = 0; _mouseDeltaY = 0; }
   };
