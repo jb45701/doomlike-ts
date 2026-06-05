@@ -1,7 +1,6 @@
 import * as THREE from 'three';
-import { init as initInput, requestPointerLock, resetMouseDelta, endFrame, isPointerLocked } from './input/InputManager';
+import { init as initInput, isPointerLocked, resetMouseDelta, endFrame } from './input/InputManager';
 
-// ── Renderer Setup
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
 const renderer = new THREE.WebGLRenderer({
@@ -13,14 +12,12 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x111111);
 
-// ── Scene and Camera
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
 const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 1, 500);
 camera.position.set(0, 41, 0);
 
-// ── Lighting
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambientLight);
 
@@ -28,7 +25,6 @@ const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
 dirLight.position.set(100, 200, 100);
 scene.add(dirLight);
 
-// ── Test geometry
 const floorGeo = new THREE.PlaneGeometry(512, 512);
 const floorMat = new THREE.MeshStandardMaterial({ color: 0x333344, roughness: 1 });
 const floor = new THREE.Mesh(floorGeo, floorMat);
@@ -46,19 +42,14 @@ const box = new THREE.Mesh(boxGeo, boxMat);
 box.position.set(64, 16, -128);
 scene.add(box);
 
-// ── Input Manager
 initInput(canvas);
 
-// ── Resize
 window.addEventListener('resize', () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  camera.aspect = w / h;
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
+  renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// ── Game Loop
 function tick() {
   requestAnimationFrame(tick);
   if (isPointerLocked()) {
