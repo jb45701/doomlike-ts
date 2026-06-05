@@ -48,9 +48,10 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
-
 function tick() {
   requestAnimationFrame(tick);
+  /* Systems read input here (Task #9: InputSystem calls InputManager.getState()) */
+  /* resetMouseDelta after systems consume it, before endFrame */
   InputManager.resetMouseDelta();
   InputManager.endFrame();
   renderer.render(scene, camera);

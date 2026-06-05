@@ -18,6 +18,7 @@ export interface MouseDelta { x: number; y: number; }
 
 export interface InputSnapshot {
   readonly keys: ReadonlySet<string>;
+  readonly buttons: ReadonlySet<number>;
   readonly mouseX: number;
   readonly mouseY: number;
   readonly isLocked: boolean;
@@ -41,6 +42,7 @@ let _onPointerLockChange: (() => void) | null = null;
 let _onPointerLockError: (() => void) | null = null;
 let _onOverlayClick: (() => void) | null = null;
 let _onVisibilityChange: (() => void) | null = null;
+
 export function init(canvas: HTMLCanvasElement): void {
   if (_canvas) { console.warn('[InputManager] Already initialised'); return; }
   _canvas = canvas;
@@ -72,12 +74,19 @@ export function init(canvas: HTMLCanvasElement): void {
   _onPointerLockError = () => { console.warn('[InputManager] Pointer lock denied'); };
   document.addEventListener('pointerlockerror', _onPointerLockError);
 
-  /* Wire overlay click to initiate pointer lock */
+  _onOverlayClick = () => { canvas.requestPointerLock(); };
   const overlay = document.getElementById('overlay');
-  if (overlay) overlay.addEventListener('click', () => canvas.requestPointerLock());
+  if (overlay && _onOverlayClick) overlay.addEventListener('click', _onOverlayClick);
 
   _onVisibilityChange = () => {
-    if (document.hidden) { _keysDown.clear(); _mouseDeltaX = 0; _mouseDeltaY = 0; }
+    if (document.hidden) {
+      _keysDown.clear();
+      _prevKeysDown.clear();
+      _mouseButtons.clear();
+      _prevMouseButtons.clear();
+      _mouseDeltaX = 0;
+      _mouseDeltaY = 0;
+    }
   };
   document.addEventListener('visibilitychange', _onVisibilityChange);
 
@@ -92,10 +101,15 @@ export function dispose(): void {
   if (_onMouseMove) document.removeEventListener('mousemove', _onMouseMove);
   if (_onPointerLockChange) document.removeEventListener('pointerlockchange', _onPointerLockChange);
   if (_onPointerLockError) document.removeEventListener('pointerlockerror', _onPointerLockError);
+  if (_onOverlayClick) {
+    const overlay = document.getElementById('overlay');
+    if (overlay) overlay.removeEventListener('click', _onOverlayClick);
+  }
   if (_onVisibilityChange) document.removeEventListener('visibilitychange', _onVisibilityChange);
   _onKeyDown = null; _onKeyUp = null;
   _onMouseDown = null; _onMouseUp = null; _onMouseMove = null;
-  _onPointerLockChange = null; _onPointerLockError = null; _onVisibilityChange = null;
+  _onPointerLockChange = null; _onPointerLockError = null;
+  _onVisibilityChange = null; _onOverlayClick = null;
   _keysDown.clear(); _prevKeysDown.clear();
   _mouseButtons.clear(); _prevMouseButtons.clear();
   _mouseDeltaX = 0; _mouseDeltaY = 0;
@@ -109,6 +123,7 @@ export function requestPointerLock(): void {
 export function getState(): InputSnapshot {
   return {
     keys: new Set(_keysDown),
+    buttons: new Set(_mouseButtons),
     mouseX: _mouseDeltaX,
     mouseY: _mouseDeltaY,
     isLocked: _isPointerLocked,
