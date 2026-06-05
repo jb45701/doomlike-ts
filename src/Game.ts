@@ -27,7 +27,6 @@ import {
 import { InputSystem } from './systems/InputSystem';
 import { MovementSystem } from './systems/MovementSystem';
 import { Renderer } from './renderer/Renderer';
-import type { RenderContext } from './renderer/Renderer';
 
 /** Max frame delta to prevent spiral-of-death after a long pause (seconds). */
 const MAX_DT = 0.05;
@@ -37,7 +36,7 @@ const MAX_DT = 0.05;
 export interface GameState {
   world: EcsWorld;
   player: number;
-  renderer: RenderContext;
+  renderer: Renderer;
   running: boolean;
   lastTime: number;
   rafId: number | null;
@@ -53,7 +52,7 @@ export function createGame(canvas: HTMLCanvasElement): GameState {
   const world = createEcsWorld();
 
   // ── Renderer ───────────────────────────────────────────────────────────
-  const renderer = createRenderer(canvas);
+  const renderer = new Renderer(canvas);
 
   // ── Player entity ──────────────────────────────────────────────────────
   const player = createEntity(world);
@@ -106,7 +105,13 @@ export function createGame(canvas: HTMLCanvasElement): GameState {
     InputManager.endFrame();
 
     // 4. Sync camera to player entity
-    renderer.syncCamera(world);
+    renderer.syncCamera(
+      Position.x[player],
+      Position.y[player],
+      Position.z[player],
+      Rotation.yaw[player],
+      Rotation.pitch[player],
+    );
 
     // 5. Render
     renderer.render();
