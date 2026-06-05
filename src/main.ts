@@ -51,10 +51,7 @@ window.addEventListener('resize', () => {
 
 function tick() {
   requestAnimationFrame(tick);
-  const state = InputManager.getState();
-  if (state.isLocked && (state.mouseX !== 0 || state.mouseY !== 0)) {
-    // Mouse look — drives camera when InputSystem is wired
-  }
+  InputManager.resetMouseDelta();
   InputManager.endFrame();
   renderer.render(scene, camera);
 }
