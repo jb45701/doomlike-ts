@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { init as initInput, isPointerLocked, resetMouseDelta, endFrame } from './input/InputManager';
+import { init as initInput, resetMouseDelta, endFrame, isPointerLocked } from './input/InputManager';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
