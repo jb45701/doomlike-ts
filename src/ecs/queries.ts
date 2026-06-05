@@ -1,6 +1,5 @@
-import { query } from 'bitecs';
-import { Not } from 'bitecs';
-import type { World } from 'bitecs';
+import { query, Not } from 'bitecs';
+import type { World, QueryResult } from 'bitecs';
 import {
   Position,
   Rotation,
@@ -24,6 +23,9 @@ import {
 // ── Re-export query operators for convenience ──────────────────────────────
 export { Not } from 'bitecs';
 export type { World };
+
+/** Convenience type alias for query results (read-only array of entity IDs). */
+export type Entities = QueryResult;
 
 // ── Spatial queries ────────────────────────────────────────────────────────
 
