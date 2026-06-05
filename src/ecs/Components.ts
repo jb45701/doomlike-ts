@@ -6,6 +6,19 @@
  *
  * String/enum fields are stored as numeric indices. See individual component
  * comments for the mapping.
+ *
+ * Usage:
+ *   import { addComponent, hasComponent } from 'bitecs';
+ *   import { Position, Health } from './Components';
+ *
+ *   // Add component to an entity
+ *   addComponent(world, eid, Position);
+ *   Position.x[eid] = 10;
+ *   Position.y[eid] = 41;
+ *   Position.z[eid] = -128;
+ *
+ *   // Marker component (no data)
+ *   addComponent(world, eid, PlayerTag);
  */
 
 // ── Spatial ────────────────────────────────────────────────────────────────
