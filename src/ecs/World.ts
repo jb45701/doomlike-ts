@@ -19,7 +19,7 @@ export type EcsWorld = BitecsWorld;
 
 /**
  * Create a new ECS world.
- * The world stores all component data in SoA (Structure of Arrays) layout —
+ * The world stores all component data in SoA (Structure of Arrays) layout --
  * each numeric component field is a typed array indexed by entity ID.
  */
 export function createEcsWorld(): EcsWorld {

@@ -1,5 +1,10 @@
 import * as THREE from 'three';
 import * as InputManager from './input/InputManager';
+import { createEcsWorld, createEntity } from './ecs/World';
+import { addComponent } from 'bitecs';
+import { Position, Rotation, Velocity, InputState, PlayerTag } from './ecs/Components';
+import { InputSystem } from './systems/InputSystem';
+import { MovementSystem } from './systems/MovementSystem';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
@@ -12,6 +17,27 @@ renderer.setClearColor(0x111111);
 
 InputManager.init(canvas);
 
+// ── ECS setup ──────────────────────────────────────────────────────────────
+const world = createEcsWorld();
+const player = createEntity(world);
+
+addComponent(world, player, Position);
+Position.x[player] = 0;
+Position.y[player] = 41;   // eye height
+Position.z[player] = 0;
+
+addComponent(world, player, Rotation);
+Rotation.yaw[player] = 0;
+Rotation.pitch[player] = 0;
+Rotation.roll[player] = 0;
+
+addComponent(world, player, Velocity);
+
+addComponent(world, player, InputState);
+
+addComponent(world, player, PlayerTag);
+
+// ── Scene ──────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
@@ -48,11 +74,21 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// ── Game loop ──────────────────────────────────────────────────────────────
+let lastTime = performance.now();
+
 function tick() {
   requestAnimationFrame(tick);
-  /* Systems read input here (Task #9: InputSystem calls InputManager.getState()) */
-  /* resetMouseDelta after systems consume it, before endFrame */
-  InputManager.resetMouseDelta();
+
+  const now = performance.now();
+  const dt = Math.min((now - lastTime) / 1000, 0.1); // cap dt to 100ms
+  lastTime = now;
+
+  // Systems run in order: InputSystem → MovementSystem → RenderSystem
+  InputSystem(world, dt);
+  MovementSystem(world, dt);
+
   InputManager.endFrame();
   renderer.render(scene, camera);
 }
