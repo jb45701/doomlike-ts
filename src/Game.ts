@@ -1,21 +1,61 @@
+/**
+ * Game — main loop, lifecycle, and ECS world management.
+ *
+ * This is the heart of the game. It owns the ECS world, player entity,
+ * and the per-frame system pipeline.
+ *
+ * Lifecycle:
+ *   const game = createGame(canvas);
+ *   game.start();
+ *   // ... runs until stop()
+ *   game.stop();
+ *   game.dispose();
+ */
 import { addComponent } from 'bitecs';
 import * as InputManager from './input/InputManager';
 import { createEcsWorld, createEntity } from './ecs/World';
-import { PlayerTag, Position, Rotation, Velocity, InputState, RigidBody, Health } from './ecs/Components';
+import type { EcsWorld } from './ecs/World';
+import {
+  PlayerTag,
+  Position,
+  Rotation,
+  Velocity,
+  InputState,
+  RigidBody,
+  Health,
+} from './ecs/Components';
 import { InputSystem } from './systems/InputSystem';
 import { MovementSystem } from './systems/MovementSystem';
 import { createRenderer } from './renderer/Renderer';
-/** Max frame delta to prevent spiral-of-death after a long pause (seconds). */
-const MAX_DT = 0.1;
+import type { RenderContext } from './renderer/Renderer';
 
-export interface GameContext {
+/** Max frame delta to prevent spiral-of-death after a long pause (seconds). */
+const MAX_DT = 0.05;
+
+// ── Types ───────────────────────────────────────────────────────────────────
+
+export interface GameState {
+  world: EcsWorld;
+  player: number;
+  renderer: RenderContext;
+  running: boolean;
+  lastTime: number;
+  rafId: number | null;
   start: () => void;
   stop: () => void;
   dispose: () => void;
 }
 
-export function createGame(canvas: HTMLCanvasElement): GameContext {
+// ── Factory ─────────────────────────────────────────────────────────────────
+
+export function createGame(canvas: HTMLCanvasElement): GameState {
+  // ── ECS world ──────────────────────────────────────────────────────────
   const world = createEcsWorld();
+
+  // ── Renderer ───────────────────────────────────────────────────────────
+  const renderer = createRenderer(canvas);
+
+  // ── Player entity ──────────────────────────────────────────────────────
   const player = createEntity(world);
   addComponent(world, player, PlayerTag);
   addComponent(world, player, Position);
@@ -24,51 +64,75 @@ export function createGame(canvas: HTMLCanvasElement): GameContext {
   addComponent(world, player, InputState);
   addComponent(world, player, RigidBody);
   addComponent(world, player, Health);
-  Position.x[player] = 0; Position.y[player] = 0; Position.z[player] = 0;
-  Rotation.yaw[player] = 0; Rotation.pitch[player] = 0;
-  Velocity.dx[player] = 0; Velocity.dy[player] = 0; Velocity.dz[player] = 0;
-  RigidBody.mass[player] = 1; RigidBody.grounded[player] = true;
-  Health.current[player] = 100; Health.max[player] = 100; Health.armor[player] = 0;
 
-  const renderer = createRenderer(canvas);
+  // Initial component values
+  Position.x[player] = 0;
+  Position.y[player] = 0;
+  Position.z[player] = 0;
+  Rotation.yaw[player] = 0;
+  Rotation.pitch[player] = 0;
+  Velocity.dx[player] = 0;
+  Velocity.dy[player] = 0;
+  Velocity.dz[player] = 0;
+  RigidBody.mass[player] = 1;
+  RigidBody.grounded[player] = true;
+  Health.current[player] = 100;
+  Health.max[player] = 100;
+  Health.armor[player] = 0;
+
+  // ── Input ──────────────────────────────────────────────────────────────
   InputManager.init(canvas);
 
-  let lastTime = performance.now();
-  let rafId = 0;
+  // ── State ──────────────────────────────────────────────────────────────
   let running = false;
+  let lastTime = performance.now();
+  let rafId: number | null = null;
 
-  function tick(): void {
+  // ── Tick ───────────────────────────────────────────────────────────────
+  function tick(now: number): void {
     if (!running) return;
     rafId = requestAnimationFrame(tick);
-    const now = performance.now();
+
     const dt = Math.min((now - lastTime) / 1000, MAX_DT);
     lastTime = now;
+
+    // 1. InputSystem — reads InputManager → writes InputState + Rotation
     InputSystem(world, dt);
+
+    // 2. MovementSystem — reads InputState → updates Velocity + Position
     MovementSystem(world, dt);
+
+    // 3. End frame — snapshot prev-state for edge detection next tick
     InputManager.endFrame();
+
+    // 4. Sync camera to player entity
     renderer.syncCamera(world);
+
+    // 5. Render
     renderer.render();
   }
 
-  function start(): void {
+  // ── Public API ─────────────────────────────────────────────────────────
+  const start = (): void => {
     if (running) return;
     running = true;
     lastTime = performance.now();
     rafId = requestAnimationFrame(tick);
-  }
+  };
 
-  function stop(): void {
-    if (!running) return;
+  const stop = (): void => {
     running = false;
-    cancelAnimationFrame(rafId);
-    rafId = 0;
-  }
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  };
 
-  function dispose(): void {
+  const dispose = (): void => {
     stop();
-    renderer.dispose();
     InputManager.dispose();
-  }
+    renderer.dispose();
+  };
 
-  return { start, stop, dispose };
+  return { world, player, renderer, running, lastTime, rafId, start, stop, dispose };
 }
