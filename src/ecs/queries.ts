@@ -1,16 +1,4 @@
-/**
- * ECS Query definitions — reusable query functions for systems.
- *
- * Uses the bitecs main API query() on component references.
- * Each function returns a QueryResult (read-only array of entity IDs).
- *
- * Usage:
- *   for (const eid of queryRenderableEntities(world)) {
- *     // eid has Position + Renderable
- *   }
- */
-import { query, Not } from 'bitecs';
-import type { World, QueryResult } from 'bitecs';
+import { query, type World } from 'bitecs';
 import {
   Position,
   Rotation,
@@ -28,96 +16,93 @@ import {
   PlayerTag,
   InputState,
   DespawnTimer,
-  FlashTimer,
 } from './Components';
 
-// ── Re-export for convenience ─────────────────────────────────────────────
-export { Not } from 'bitecs';
-export type { World };
+// ── Spatial ────────────────────────────────────────────────────────────────
 
-/** Type alias for query results (read-only entity ID array). */
-export type Entities = QueryResult;
-
-// ── Spatial ───────────────────────────────────────────────────────────────
-
-export function queryMovableEntities(world: World): Entities {
+/** Entities with Position + Velocity — moved every frame. */
+export function queryMovableEntities(world: World): ReturnType<typeof query> {
   return query(world, [Position, Velocity]);
 }
 
-export function queryTransformEntities(world: World): Entities {
+/** Entities with Position + Rotation — need transform sync. */
+export function queryTransformEntities(world: World): ReturnType<typeof query> {
   return query(world, [Position, Rotation]);
 }
 
-// ── Physics ───────────────────────────────────────────────────────────────
+// ── Physics ────────────────────────────────────────────────────────────────
 
-export function queryPhysicsBodies(world: World): Entities {
+/** Physical bodies (collider + rigid body). */
+export function queryPhysicsBodies(world: World): ReturnType<typeof query> {
   return query(world, [Collider, RigidBody]);
 }
 
-export function queryStaticColliders(world: World): Entities {
-  return query(world, [Collider, Not(RigidBody)]);
+/** Static colliders (collider, no rigid body). */
+export function queryStaticColliders(world: World): ReturnType<typeof query> {
+  return query(world, [Collider]);
 }
 
-// ── Rendering ─────────────────────────────────────────────────────────────
+// ── Rendering ──────────────────────────────────────────────────────────────
 
-export function queryRenderableEntities(world: World): Entities {
+/** Entities that need a visual representation. */
+export function queryRenderableEntities(world: World): ReturnType<typeof query> {
   return query(world, [Position, Renderable]);
 }
 
-export function queryAnimatedEntities(world: World): Entities {
+/** Animated sprites. */
+export function queryAnimatedEntities(world: World): ReturnType<typeof query> {
   return query(world, [AnimState, Renderable, Position]);
 }
 
-// ── Gameplay ──────────────────────────────────────────────────────────────
+// ── Gameplay ───────────────────────────────────────────────────────────────
 
-export function queryDamageEntities(world: World): Entities {
+/** Entities with damage to apply. */
+export function queryDamageEntities(world: World): ReturnType<typeof query> {
   return query(world, [Damage]);
 }
 
-export function queryDeadEntities(world: World): Entities {
-  // Matches entities with Health but no pending Damage component.
-  // Systems must still check Health.current[eid] <= 0 to find dead entities.
-  return query(world, [Health, Not(Damage)]);
+/** Entities with health (alive or dead). */
+export function queryHealthEntities(world: World): ReturnType<typeof query> {
+  return query(world, [Health]);
 }
 
-export function queryEnemyEntities(world: World): Entities {
+/** Enemy entities. */
+export function queryEnemyEntities(world: World): ReturnType<typeof query> {
   return query(world, [EnemyAI, Position, Health]);
 }
 
-export function queryPursuingEnemies(world: World): Entities {
-  return query(world, [EnemyAI, Position, Velocity]);
-}
-
-export function queryPickups(world: World): Entities {
+/** Pickup items. */
+export function queryPickups(world: World): ReturnType<typeof query> {
   return query(world, [Pickup, Position]);
 }
 
-export function queryDoors(world: World): Entities {
+/** Doors. */
+export function queryDoors(world: World): ReturnType<typeof query> {
   return query(world, [Door]);
 }
 
-// ── Player ────────────────────────────────────────────────────────────────
+// ── Player ─────────────────────────────────────────────────────────────────
 
-export function queryPlayerEntity(world: World): Entities {
-  return query(world, [PlayerTag, Position, Rotation, InputState]);
+/** The single player entity (exactly one). */
+export function queryPlayerEntity(world: World): ReturnType<typeof query> {
+  return query(world, [PlayerTag, Position, InputState]);
 }
 
-export function queryPlayerCombat(world: World): Entities {
+/** Player with weapon data. */
+export function queryPlayerCombat(world: World): ReturnType<typeof query> {
   return query(world, [PlayerTag, WeaponState, InputState]);
 }
 
-// ── Lifecycle ─────────────────────────────────────────────────────────────
+// ── Lifecycle ──────────────────────────────────────────────────────────────
 
-export function queryDespawningEntities(world: World): Entities {
+/** Entities with active despawn timers. */
+export function queryDespawningEntities(world: World): ReturnType<typeof query> {
   return query(world, [DespawnTimer]);
 }
 
-export function queryFlashingEntities(world: World): Entities {
-  return query(world, [FlashTimer]);
-}
+// ── Projectile ─────────────────────────────────────────────────────────────
 
-// ── Projectiles ───────────────────────────────────────────────────────────
-
-export function queryProjectiles(world: World): Entities {
+/** Active projectiles (moving + damaging + timed). */
+export function queryProjectiles(world: World): ReturnType<typeof query> {
   return query(world, [Position, Velocity, Damage, DespawnTimer]);
 }
