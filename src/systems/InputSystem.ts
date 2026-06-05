@@ -11,15 +11,13 @@
  * Lifecycle:
  *   InputSystem(world, deltaTime);
  */
-import type { World } from 'bitecs';
 import { hasComponent, addComponent } from 'bitecs';
 import {
   InputState,
   Rotation,
-  PlayerTag,
-  Position,
 } from '../ecs/Components';
 import { queryPlayerEntity } from '../ecs/queries';
+import type { EcsWorld } from '../ecs/World';
 import * as InputManager from '../input/InputManager';
 
 /** Mouse sensitivity in radians per pixel. */
@@ -28,24 +26,24 @@ const SENSITIVITY = 0.002;
 /** Half-pi constant for pitch clamping. */
 const HALF_PI = Math.PI / 2;
 
-export function InputSystem(world: World, _deltaTime: number): void {
+export function InputSystem(world: EcsWorld, _deltaTime: number): void {
   const entities = queryPlayerEntity(world);
   if (entities.length === 0) return;
 
   const eid = entities[0];
 
-  // ── Ensure InputState is present ──────────────────────────────────────
-  if (!hasComponent(world, InputState, eid)) {
-    addComponent(world, InputState, eid);
+  // Ensure InputState is present
+  if (!hasComponent(world, eid, InputState)) {
+    addComponent(world, eid, InputState);
   }
 
-  // ── Mouse delta — read and store ──────────────────────────────────────
+  // Mouse delta — read and store
   const delta = InputManager.resetMouseDelta();
 
   InputState.mouseX[eid] = delta.x;
   InputState.mouseY[eid] = delta.y;
 
-  // ── Rotation from mouse ───────────────────────────────────────────────
+  // Rotation from mouse
   Rotation.yaw[eid]   ??= 0;
   Rotation.pitch[eid] ??= 0;
   Rotation.roll[eid]  ??= 0;
@@ -64,7 +62,7 @@ export function InputSystem(world: World, _deltaTime: number): void {
   if (Rotation.yaw[eid] > Math.PI)  Rotation.yaw[eid] -= Math.PI * 2;
   if (Rotation.yaw[eid] < -Math.PI) Rotation.yaw[eid] += Math.PI * 2;
 
-  // ── Keyboard / mouse mapping ──────────────────────────────────────────
+  // Keyboard / mouse mapping
   InputState.forward[eid]      = InputManager.isKeyDown('KeyW');
   InputState.back[eid]         = InputManager.isKeyDown('KeyS');
   InputState.left[eid]         = InputManager.isKeyDown('KeyA');
@@ -78,7 +76,7 @@ export function InputSystem(world: World, _deltaTime: number): void {
 
   // Weapon switching
   InputState.nextWeapon[eid]   = InputManager.wasKeyPressed('KeyQ');
-  InputState.prevWeapon[eid]   = InputManager.wasKeyPressed('Digit1'); // MWheel handled separately
+  InputState.prevWeapon[eid]   = InputManager.wasKeyPressed('KeyZ');
   InputState.weaponSlot1[eid]  = InputManager.wasKeyPressed('Digit1');
   InputState.weaponSlot2[eid]  = InputManager.wasKeyPressed('Digit2');
   InputState.weaponSlot3[eid]  = InputManager.wasKeyPressed('Digit3');
