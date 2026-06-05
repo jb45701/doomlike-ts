@@ -49,21 +49,17 @@ overlay.addEventListener('click', () => {
 });
 
 window.addEventListener('resize', () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  camera.aspect = w / h;
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
+  renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
 function tick() {
   requestAnimationFrame(tick);
-
   const state = InputManager.getState();
   if (state.isLocked) {
-    // Mouse look — will drive camera when InputSystem is wired
+    // Mouse look will drive camera when InputSystem is wired
   }
-
   renderer.render(scene, camera);
 }
 
