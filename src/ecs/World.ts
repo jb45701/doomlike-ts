@@ -1,32 +1,49 @@
-/**
- * ECS World — bitecs world initialization and entity lifecycle helpers.
- *
- * Uses the bitecs core API (createWorld, addEntity, removeEntity)
- * which is shared between the base and legacy APIs.
- */
-import { createWorld as createBitecsWorld, addEntity, removeEntity } from 'bitecs';
-import type { World, EntityId } from 'bitecs';
+import { createWorld, addEntity, removeEntity } from 'bitecs';
+import type { World as BitecsWorld } from 'bitecs';
 
+// ── Types ────────────────────────────────────────────────
+/** The world object used throughout the ECS. */
+export type EcsWorld = BitecsWorld;
+
+// ── World Creation ───────────────────────────────────────
 /**
- * Create a new ECS world.
- * The world stores all component data in typed arrays (SoA layout).
+ * Create a new bitecs ECS world.
+ * The world is a plain object that holds entity component data in
+ * typed SoA (Structure of Arrays) storage. Systems query entities
+ * by their component composition and process them each frame.
+ *
+ * Usage:
+ * ```ts
+ * const world = createEcsWorld();
+ * const eid = createEntity(world);
+ * addComponent(world, eid, Position);
+ * Position.x[eid] = 10;
+ * ```
  */
-export function createECSWorld<T extends object = {}>(): World<T> {
-  return createBitecsWorld<T>();
+export function createEcsWorld(): EcsWorld {
+  return createWorld();
 }
 
+// ── Entity Helpers ───────────────────────────────────────
 /**
- * Create a new entity in the world and return its ID.
- * Entity IDs are positive integers (1-indexed).
+ * Create a new entity in the world.
+ * Returns the numeric entity ID (eid). Components must be added
+ * separately via addComponent().
+ *
+ * @param world - The ECS world
+ * @returns A new unique entity ID
  */
-export function createEntity(world: World): EntityId {
+export function createEntity(world: EcsWorld): number {
   return addEntity(world);
 }
 
 /**
- * Remove an entity and all its components from the world.
- * The entity ID may be reused after the internal generation counter increments.
+ * Destroy an entity and remove all its components.
+ * The entity ID may be reused after destruction.
+ *
+ * @param world - The ECS world
+ * @param eid - The entity ID to destroy
  */
-export function destroyEntity(world: World, eid: EntityId): void {
+export function destroyEntity(world: EcsWorld, eid: number): void {
   removeEntity(world, eid);
 }

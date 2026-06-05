@@ -1,16 +1,5 @@
-/**
- * ECS Query definitions — reusable queries for systems.
- *
- * Uses the bitecs new API `query()` which operates on component references.
- * Each function returns a `QueryResult` (read-only array of entity IDs).
- *
- * Usage:
- *   for (const eid of queryRenderableEntities(world)) {
- *     // eid is a valid entity with Position + Renderable
- *   }
- */
-import { query, Not } from 'bitecs';
-import type { World, QueryResult } from 'bitecs';
+import { defineQuery } from 'bitecs/legacy';
+
 import {
   Position,
   Rotation,
@@ -31,108 +20,59 @@ import {
   FlashTimer,
 } from './Components';
 
-// ── Re-export query operators for convenience ──────────────────────────────
-export { Not } from 'bitecs';
-export type { World };
+// ── Spatial ──────────────────────────────────────────────
+/** Entities with position and velocity — apply movement processing. */
+export const movableQuery = defineQuery([Position, Velocity]);
 
-/** Convenience type alias for query results (read-only array of entity IDs). */
-export type Entities = QueryResult;
+/** Entities with position and rotation — sync visual transforms. */
+export const transformQuery = defineQuery([Position, Rotation]);
 
-// ── Spatial queries ────────────────────────────────────────────────────────
+// ── Rendering ────────────────────────────────────────────
+/** Entities with position and a renderable — visible in the scene. */
+export const renderableQuery = defineQuery([Position, Renderable]);
 
-/** Entities with Position + Velocity — moved every frame by MovementSystem. */
-export function queryMovableEntities(world: World): Entities {
-  return query(world, [Position, Velocity]);
-}
+/** Entities with animation state — advance frame timing. */
+export const animatedQuery = defineQuery([Position, Renderable, AnimState]);
 
-/** Entities with Position + Rotation — need transform sync. */
-export function queryTransformEntities(world: World): Entities {
-  return query(world, [Position, Rotation]);
-}
+// ── Physics ──────────────────────────────────────────────
+/** Entities with physics representation — sync to Rapier. */
+export const physicsQuery = defineQuery([Position, Collider, RigidBody, Velocity]);
 
-// ── Physics queries ────────────────────────────────────────────────────────
+// ── Player ───────────────────────────────────────────────
+/** The single player entity with input, position, and weapon. */
+export const playerQuery = defineQuery([PlayerTag, InputState, Position]);
 
-/** Physical bodies (collider + rigid body). */
-export function queryPhysicsBodies(world: World): Entities {
-  return query(world, [Collider, RigidBody]);
-}
+/** Player plus full gameplay state. */
+export const playerFullQuery = defineQuery([
+  PlayerTag, InputState, Position, Rotation, Velocity, Health, WeaponState,
+]);
 
-/** Static bodies (collider but no rigid body). */
-export function queryStaticColliders(world: World): Entities {
-  return query(world, [Collider, Not(RigidBody)]);
-}
+// ── Enemies ──────────────────────────────────────────────
+/** All enemy entities with AI, position, and health. */
+export const enemyQuery = defineQuery([EnemyAI, Position, Health]);
 
-// ── Rendering queries ──────────────────────────────────────────────────────
+/** Enemy with renderable (for animation system to set sprite state). */
+export const enemyRenderableQuery = defineQuery([EnemyAI, Position, Renderable]);
 
-/** Entities that need a visual representation. */
-export function queryRenderableEntities(world: World): Entities {
-  return query(world, [Position, Renderable]);
-}
+// ── Combat ───────────────────────────────────────────────
+/** Projectiles — moving entities that deal damage. */
+export const projectileQuery = defineQuery([Position, Velocity, Damage, DespawnTimer]);
 
-/** Animated sprites. */
-export function queryAnimatedEntities(world: World): Entities {
-  return query(world, [AnimState, Renderable, Position]);
-}
+/** Entities that have been dealt damage this frame. */
+export const damageQuery = defineQuery([Damage]);
 
-// ── Gameplay queries ───────────────────────────────────────────────────────
+/** Entities with non-zero health — candidates for damage/death. */
+export const healthQuery = defineQuery([Health]);
 
-/** Entities with damage to apply. */
-export function queryDamageEntities(world: World): Entities {
-  return query(world, [Damage]);
-}
+/** Dead entities (Health.current <= 0) are found at runtime via healthQuery + filter. */
 
-/** Dead entities (health <= 0). Need DeathSystem + optional Pickup spawn. */
-export function queryDeadEntities(world: World): Entities {
-  return query(world, [Health, Not(Damage)]);
-}
+// ── Gameplay Objects ─────────────────────────────────────
+/** All doors. */
+export const doorQuery = defineQuery([Door]);
 
-/** Enemy entities. */
-export function queryEnemyEntities(world: World): Entities {
-  return query(world, [EnemyAI, Position, Health]);
-}
+/** All pickups. */
+export const pickupQuery = defineQuery([Pickup, Position]);
 
-/** Enemies in pursuit mode. */
-export function queryPursuingEnemies(world: World): Entities {
-  return query(world, [EnemyAI, Position, Velocity]);
-}
-
-/** Pickup items in the world. */
-export function queryPickups(world: World): Entities {
-  return query(world, [Pickup, Position]);
-}
-
-/** Sectors with doors. */
-export function queryDoors(world: World): Entities {
-  return query(world, [Door]);
-}
-
-// ── Player queries ─────────────────────────────────────────────────────────
-
-/** The player entity (exactly one). */
-export function queryPlayerEntity(world: World): Entities {
-  return query(world, [PlayerTag, Position, InputState]);
-}
-
-/** Player with weapon data. */
-export function queryPlayerCombat(world: World): Entities {
-  return query(world, [PlayerTag, WeaponState, InputState]);
-}
-
-// ── Lifecycle queries ──────────────────────────────────────────────────────
-
-/** Entities with active despawn timers. */
-export function queryDespawningEntities(world: World): Entities {
-  return query(world, [DespawnTimer]);
-}
-
-/** Entities with active flash timers. */
-export function queryFlashingEntities(world: World): Entities {
-  return query(world, [FlashTimer]);
-}
-
-// ── Projectile queries ─────────────────────────────────────────────────────
-
-/** Active projectiles (moving + damaging + timed). */
-export function queryProjectiles(world: World): Entities {
-  return query(world, [Position, Velocity, Damage, DespawnTimer]);
-}
+// ── Lifecycle ────────────────────────────────────────────
+/** Entities scheduled for automatic cleanup. */
+export const despawnQuery = defineQuery([DespawnTimer]);
