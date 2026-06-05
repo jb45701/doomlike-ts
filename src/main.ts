@@ -1,21 +1,22 @@
 import * as THREE from 'three';
-import { init as initInput, resetMouseDelta, endFrame, isPointerLocked } from './input/InputManager';
+import * as InputManager from './input/InputManager';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
 const renderer = new THREE.WebGLRenderer({
-  canvas,
-  antialias: false,
-  powerPreference: 'high-performance',
+  canvas, antialias: false, powerPreference: 'high-performance',
 });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x111111);
 
+InputManager.init(canvas);
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
-const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 1, 500);
+const camera = new THREE.PerspectiveCamera(90,
+  window.innerWidth / window.innerHeight, 1, 500);
 camera.position.set(0, 41, 0);
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -42,8 +43,6 @@ const box = new THREE.Mesh(boxGeo, boxMat);
 box.position.set(64, 16, -128);
 scene.add(box);
 
-initInput(canvas);
-
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -52,10 +51,11 @@ window.addEventListener('resize', () => {
 
 function tick() {
   requestAnimationFrame(tick);
-  if (isPointerLocked()) {
-    resetMouseDelta();
+  const state = InputManager.getState();
+  if (state.isLocked && (state.mouseX !== 0 || state.mouseY !== 0)) {
+    // Mouse look — drives camera when InputSystem is wired
   }
-  endFrame();
+  InputManager.endFrame();
   renderer.render(scene, camera);
 }
 
