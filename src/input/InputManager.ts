@@ -39,8 +39,8 @@ let _onMouseUp: ((e: MouseEvent) => void) | null = null;
 let _onMouseMove: ((e: MouseEvent) => void) | null = null;
 let _onPointerLockChange: (() => void) | null = null;
 let _onPointerLockError: (() => void) | null = null;
+let _onOverlayClick: (() => void) | null = null;
 let _onVisibilityChange: (() => void) | null = null;
-
 export function init(canvas: HTMLCanvasElement): void {
   if (_canvas) { console.warn('[InputManager] Already initialised'); return; }
   _canvas = canvas;
