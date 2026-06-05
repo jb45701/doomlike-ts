@@ -97,7 +97,7 @@ export function queryDoors(world: World): Entities {
 // ── Player ────────────────────────────────────────────────────────────────
 
 export function queryPlayerEntity(world: World): Entities {
-  return query(world, [PlayerTag, Position, InputState]);
+  return query(world, [PlayerTag, Position, Rotation, InputState]);
 }
 
 export function queryPlayerCombat(world: World): Entities {
