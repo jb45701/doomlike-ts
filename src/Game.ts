@@ -26,20 +26,16 @@ import {
 } from './ecs/Components';
 import { InputSystem } from './systems/InputSystem';
 import { MovementSystem } from './systems/MovementSystem';
-import { Renderer } from './renderer/Renderer';
+import { createRenderer } from './renderer/Renderer';
 
 /** Max frame delta to prevent spiral-of-death after a long pause (seconds). */
-const MAX_DT = 0.05;
+const MAX_DT = 0.1;
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-export interface GameState {
+export interface GameContext {
   world: EcsWorld;
   player: number;
-  renderer: Renderer;
-  running: boolean;
-  lastTime: number;
-  rafId: number | null;
   start: () => void;
   stop: () => void;
   dispose: () => void;
@@ -47,12 +43,12 @@ export interface GameState {
 
 // ── Factory ─────────────────────────────────────────────────────────────────
 
-export function createGame(canvas: HTMLCanvasElement): GameState {
+export function createGame(canvas: HTMLCanvasElement): GameContext {
   // ── ECS world ──────────────────────────────────────────────────────────
   const world = createEcsWorld();
 
   // ── Renderer ───────────────────────────────────────────────────────────
-  const renderer = new Renderer(canvas);
+  const renderer = createRenderer(canvas);
 
   // ── Player entity ──────────────────────────────────────────────────────
   const player = createEntity(world);
@@ -64,7 +60,7 @@ export function createGame(canvas: HTMLCanvasElement): GameState {
   addComponent(world, player, RigidBody);
   addComponent(world, player, Health);
 
-  // Initial component values
+  // Initial component values (foot-level y — renderer adds EYE_HEIGHT)
   Position.x[player] = 0;
   Position.y[player] = 0;
   Position.z[player] = 0;
@@ -105,13 +101,7 @@ export function createGame(canvas: HTMLCanvasElement): GameState {
     InputManager.endFrame();
 
     // 4. Sync camera to player entity
-    renderer.syncCamera(
-      Position.x[player],
-      Position.y[player],
-      Position.z[player],
-      Rotation.yaw[player],
-      Rotation.pitch[player],
-    );
+    renderer.syncCamera(world);
 
     // 5. Render
     renderer.render();
@@ -139,5 +129,5 @@ export function createGame(canvas: HTMLCanvasElement): GameState {
     renderer.dispose();
   };
 
-  return { world, player, renderer, running, lastTime, rafId, start, stop, dispose };
+  return { world, player, start, stop, dispose };
 }
