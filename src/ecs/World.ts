@@ -1,4 +1,4 @@
-import { createWorld, addEntity, removeEntity } from 'bitecs';
+import { createWorld, addEntity, removeEntity, entityExists } from 'bitecs';
 import type { World as BitecsWorld } from 'bitecs';
 
 // ── Types ────────────────────────────────────────────────
