@@ -1,163 +1,321 @@
-import { soa } from 'bitecs';
+// ──────────────────────────────────────────────────────────
+// Component definitions for the Doom-like FPS ECS world.
+//
+// Each block below provides:
+//   1. A TypeScript interface (for editor support & documentation)
+//   2. A component store object (the bitecs identity + SoA typed arrays)
+//   3. Enum/map helpers for non-numeric fields
+//
+// Usage pattern:
+//   addComponent(world, eid, Position);
+//   Position.x[eid] = 0;
+//   Position.y[eid] = 41;
+//   Position.z[eid] = 0;
+// ──────────────────────────────────────────────────────────
 
-// ── Spatial ──────────────────────────────────────────
+// ── Enum helpers ──────────────────────────────────────────
+// Stored as integers in Uint8Array / Float64Array fields.
+// The const-asserted objects give switch-friendly numeric values.
 
-/** Position in 3D world space */
-export const Position = soa({
-  x: Float64Array,
-  y: Float64Array,
-  z: Float64Array,
-});
+export const ColliderShape = { Capsule: 0, Box: 1, Sphere: 2, Ray: 3 } as const;
+export type ColliderShape = (typeof ColliderShape)[keyof typeof ColliderShape];
 
-/** Euler angles (yaw around Y, pitch around X, roll around Z) */
-export const Rotation = soa({
-  yaw: Float64Array,
-  pitch: Float64Array,
-  roll: Float64Array,
-});
+export const RenderableKind = { Billboard: 0, Mesh: 1, StaticMesh: 2 } as const;
+export type RenderableKind = (typeof RenderableKind)[keyof typeof RenderableKind];
 
-/** Linear velocity in units per second */
-export const Velocity = soa({
-  dx: Float64Array,
-  dy: Float64Array,
-  dz: Float64Array,
-});
+export const AIBehavior = { Idle: 0, Patrol: 1, Pursue: 2, Attack: 3, Pain: 4, Death: 5 } as const;
+export type AIBehavior = (typeof AIBehavior)[keyof typeof AIBehavior];
 
-// ── Physics ──────────────────────────────────────────
+export const PickupKind = { Health: 0, Armor: 1, Ammo: 2, Weapon: 3, Key: 4 } as const;
+export type PickupKind = (typeof PickupKind)[keyof typeof PickupKind];
 
-/** Collision shape attached to an entity */
-export const Collider = soa({
-  shape: Uint8Array,       // 0=capsule, 1=box, 2=sphere, 3=ray
-  radius: Float64Array,
-  height: Float64Array,
-  halfExtentsX: Float64Array,
-  halfExtentsY: Float64Array,
-  halfExtentsZ: Float64Array,
-});
+// ── String / id maps (non-SoA, per-entity) ───────────────
+// These maps bridge between SoA numeric storage and string
+// resources (texture paths, animation names, weapon kinds).
+export const RenderableResourceId = new Map<number, string>();
+export const AnimStateCurrent = new Map<number, string>();
+export const WeaponStateKind = new Map<number, string>();
+export const PickupSubKind = new Map<number, string>();
 
-/** Rigid body physics properties */
-export const RigidBody = soa({
-  mass: Float64Array,
-  grounded: Uint8Array,    // boolean: 0=false, 1=true
-});
+// ══════════════════════════════════════════════════════════
+// SPATIAL
+// ══════════════════════════════════════════════════════════
 
-// ── Rendering ────────────────────────────────────────
+/** World position in 3D space. */
+export interface Position {
+  x: number;
+  y: number;
+  z: number;
+}
+export const Position = {
+  x: [] as number[],
+  y: [] as number[],
+  z: [] as number[],
+};
 
-/** Visual representation of an entity */
-export const Renderable = soa({
-  kind: Uint8Array,        // 0=billboard, 1=mesh, 2=static_mesh
-  resourceId: Uint16Array, // index into a shared resource table (string indirection)
-  scale: Float64Array,
-  brightness: Float64Array,
-});
+/** Euler rotation — yaw (horizontal) and pitch (vertical). Roll is optional. */
+export interface Rotation {
+  yaw: number;
+  pitch: number;
+  roll: number;
+}
+export const Rotation = {
+  yaw: [] as number[],
+  pitch: [] as number[],
+  roll: [] as number[],
+};
 
-/** Animation state for sprite-sheet or model animations */
-export const AnimState = soa({
-  current: Uint8Array,     // animation name index
-  frame: Uint32Array,
-  timer: Float64Array,
-  fps: Float64Array,
-});
+/** Velocity in world-space units per second. */
+export interface Velocity {
+  dx: number;
+  dy: number;
+  dz: number;
+}
+export const Velocity = {
+  dx: [] as number[],
+  dy: [] as number[],
+  dz: [] as number[],
+};
 
-// ── Gameplay ─────────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+// PHYSICS
+// ══════════════════════════════════════════════════════════
 
-/** Health pool with optional armor */
-export const Health = soa({
-  current: Float64Array,
-  max: Float64Array,
-  armor: Float64Array,
-});
+/** Collision shape attached to a physics body. */
+export interface Collider {
+  shape: ColliderShape;
+  radius: number;
+  height: number;
+  halfExtentsX: number;
+  halfExtentsY: number;
+  halfExtentsZ: number;
+}
+export const Collider = {
+  shape: [] as number[], // ColliderShape
+  radius: [] as number[],
+  height: [] as number[],
+  halfExtentsX: [] as number[],
+  halfExtentsY: [] as number[],
+  halfExtentsZ: [] as number[],
+};
 
-/** Damage payload — applied to target by DamageSystem */
-export const Damage = soa({
-  amount: Float64Array,
-  sourceX: Float64Array,
-  sourceY: Float64Array,
-  sourceZ: Float64Array,
-  knockbackX: Float64Array,
-  knockbackY: Float64Array,
-  knockbackZ: Float64Array,
-});
+/** Rigid body settings for physics simulation. */
+export interface RigidBody {
+  mass: number;
+  grounded: boolean;
+}
+export const RigidBody = {
+  mass: [] as number[],
+  grounded: [] as number[], // 0 | 1
+};
 
-/** Player weapon state */
-export const WeaponState = soa({
-  kind: Uint8Array,        // weapon type index
-  ammo: Float64Array,
-  maxAmmo: Float64Array,
-  cooldown: Float64Array,
-  firing: Uint8Array,
-  reloading: Uint8Array,
-  reloadTimer: Float64Array,
-});
+// ══════════════════════════════════════════════════════════
+// RENDERING
+// ══════════════════════════════════════════════════════════
 
-/** Enemy AI state machine */
-export const EnemyAI = soa({
-  behavior: Uint8Array,    // 0=idle, 1=patrol, 2=pursue, 3=attack, 4=pain, 5=death
-  sightRange: Float64Array,
-  attackRange: Float64Array,
-  speed: Float64Array,
-  painChance: Float64Array,
-  lastKnownX: Float64Array,
-  lastKnownY: Float64Array,
-  lastKnownZ: Float64Array,
-  target: Uint32Array,     // target entity ID
-});
+/** Visual representation of an entity in the Three.js scene. */
+export interface Renderable {
+  kind: RenderableKind;
+  resourceId: string; // stored in RenderableResourceId map
+  scale: number;
+  brightness: number;
+}
+export const Renderable = {
+  kind: [] as number[], // RenderableKind
+  scale: [] as number[],
+  brightness: [] as number[],
+};
 
-/** Pickup item on the ground */
-export const Pickup = soa({
-  kind: Uint8Array,        // 0=health, 1=armor, 2=ammo, 3=weapon, 4=key
-  subKind: Uint8Array,     // subtype index
-  amount: Float64Array,
-  respawn: Uint8Array,
-});
+/** Sprite / mesh animation state. */
+export interface AnimState {
+  current: string; // stored in AnimStateCurrent map
+  frame: number;
+  timer: number;
+  fps: number;
+}
+export const AnimState = {
+  frame: [] as number[],
+  timer: [] as number[],
+  fps: [] as number[],
+};
 
-/** Door that opens/closes */
-export const Door = soa({
-  open: Uint8Array,
-  speed: Float64Array,
-  openHeight: Float64Array,
-  currentOffset: Float64Array,
-  sectorId: Uint32Array,
-});
+// ══════════════════════════════════════════════════════════
+// GAMEPLAY
+// ══════════════════════════════════════════════════════════
 
-// ── Player ───────────────────────────────────────────
+/** Hit points and armour. */
+export interface Health {
+  current: number;
+  max: number;
+  armor: number;
+}
+export const Health = {
+  current: [] as number[],
+  max: [] as number[],
+  armor: [] as number[],
+};
 
-/** Marker: exactly one entity should have this */
-export const PlayerTag = soa({});
+/** Incoming damage payload — applied by DamageSystem. */
+export interface Damage {
+  amount: number;
+  source: number; // entity ID
+  knockbackX: number;
+  knockbackY: number;
+  knockbackZ: number;
+}
+export const Damage = {
+  amount: [] as number[],
+  source: [] as number[], // entity ID
+  knockbackX: [] as number[],
+  knockbackY: [] as number[],
+  knockbackZ: [] as number[],
+};
 
-/** Raw input state — written by InputSystem each frame */
-export const InputState = soa({
-  forward: Uint8Array,
-  back: Uint8Array,
-  left: Uint8Array,
-  right: Uint8Array,
-  jump: Uint8Array,
-  crouch: Uint8Array,
-  fire: Uint8Array,
-  altFire: Uint8Array,
-  use: Uint8Array,
-  nextWeapon: Uint8Array,
-  prevWeapon: Uint8Array,
-  weaponSlot1: Uint8Array,
-  weaponSlot2: Uint8Array,
-  weaponSlot3: Uint8Array,
-  weaponSlot4: Uint8Array,
-  weaponSlot5: Uint8Array,
-  weaponSlot6: Uint8Array,
-  weaponSlot7: Uint8Array,
-  mouseX: Float64Array,
-  mouseY: Float64Array,
-});
+/** Weapon state for the player (and possibly enemy weapons). */
+export interface WeaponState {
+  kind: string; // stored in WeaponStateKind map
+  ammo: number;
+  maxAmmo: number;
+  cooldown: number;
+  firing: boolean;
+  reloading: boolean;
+  reloadTimer: number;
+}
+export const WeaponState = {
+  ammo: [] as number[],
+  maxAmmo: [] as number[],
+  cooldown: [] as number[],
+  firing: [] as number[], // 0 | 1
+  reloading: [] as number[], // 0 | 1
+  reloadTimer: [] as number[],
+};
 
-// ── Lifecycle ────────────────────────────────────────
+/** Enemy AI state machine. */
+export interface EnemyAI {
+  behavior: AIBehavior;
+  target: number; // entity ID
+  sightRange: number;
+  attackRange: number;
+  speed: number;
+  painChance: number;
+  lastKnownPosX: number;
+  lastKnownPosY: number;
+  lastKnownPosZ: number;
+}
+export const EnemyAI = {
+  behavior: [] as number[], // AIBehavior
+  target: [] as number[], // entity ID
+  sightRange: [] as number[],
+  attackRange: [] as number[],
+  speed: [] as number[],
+  painChance: [] as number[],
+  lastKnownPosX: [] as number[],
+  lastKnownPosY: [] as number[],
+  lastKnownPosZ: [] as number[],
+};
 
-/** Timer that auto-destroys entity when it reaches zero */
-export const DespawnTimer = soa({
-  remaining: Float64Array,
-});
+/** World pickup that the player can collect. */
+export interface Pickup {
+  kind: PickupKind;
+  subKind: string; // stored in PickupSubKind map
+  amount: number;
+  respawn: boolean;
+}
+export const Pickup = {
+  kind: [] as number[], // PickupKind
+  amount: [] as number[],
+  respawn: [] as number[], // 0 | 1
+};
 
-/** Timer + target brightness for flash effects (invuln, damage) */
-export const FlashTimer = soa({
-  remaining: Float64Array,
-  targetBrightness: Float64Array,
-});
+/** Animated door for sector transitions. */
+export interface Door {
+  open: boolean;
+  speed: number;
+  openHeight: number;
+  currentOffset: number;
+  sectorId: number;
+}
+export const Door = {
+  open: [] as number[], // 0 | 1
+  speed: [] as number[],
+  openHeight: [] as number[],
+  currentOffset: [] as number[],
+  sectorId: [] as number[],
+};
+
+// ══════════════════════════════════════════════════════════
+// PLAYER
+// ══════════════════════════════════════════════════════════
+
+/** Marker component — exactly one entity carries this. No data. */
+export interface PlayerTag {
+}
+export const PlayerTag = {} as Record<string, never>;
+
+/** Raw input state, written each frame by InputSystem. */
+export interface InputState {
+  forward: boolean;
+  back: boolean;
+  left: boolean;
+  right: boolean;
+  jump: boolean;
+  crouch: boolean;
+  fire: boolean;
+  altFire: boolean;
+  use: boolean;
+  nextWeapon: boolean;
+  prevWeapon: boolean;
+  weaponSlot1: boolean;
+  weaponSlot2: boolean;
+  weaponSlot3: boolean;
+  weaponSlot4: boolean;
+  weaponSlot5: boolean;
+  weaponSlot6: boolean;
+  weaponSlot7: boolean;
+  mouseX: number;
+  mouseY: number;
+}
+export const InputState = {
+  forward: [] as number[], // 0 | 1
+  back: [] as number[],
+  left: [] as number[],
+  right: [] as number[],
+  jump: [] as number[],
+  crouch: [] as number[],
+  fire: [] as number[],
+  altFire: [] as number[],
+  use: [] as number[],
+  nextWeapon: [] as number[],
+  prevWeapon: [] as number[],
+  weaponSlot1: [] as number[],
+  weaponSlot2: [] as number[],
+  weaponSlot3: [] as number[],
+  weaponSlot4: [] as number[],
+  weaponSlot5: [] as number[],
+  weaponSlot6: [] as number[],
+  weaponSlot7: [] as number[],
+  mouseX: [] as number[],
+  mouseY: [] as number[],
+};
+
+// ══════════════════════════════════════════════════════════
+// LIFECYCLE
+// ══════════════════════════════════════════════════════════
+
+/** Countdown timer — entity is destroyed when it reaches zero. */
+export interface DespawnTimer {
+  remaining: number;
+}
+export const DespawnTimer = {
+  remaining: [] as number[],
+};
+
+/** Flash effect timer — e.g. invulnerability flash, damage flash. */
+export interface FlashTimer {
+  remaining: number;
+  targetBrightness: number;
+}
+export const FlashTimer = {
+  remaining: [] as number[],
+  targetBrightness: [] as number[],
+};
