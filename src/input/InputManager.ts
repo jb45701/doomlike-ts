@@ -7,150 +7,173 @@
  * - Mouse delta accumulation (mousemove events when pointer is locked)
  *
  * Lifecycle:
- *   InputManager.init(canvas);
+ *   init(canvas);
  *   ...
- *   const state = InputManager.getState();  // resets mouse delta
- *   InputManager.endFrame();
+ *   const state = getState();  // resets mouse delta
+ *   if (state.keys.has('KeyW')) { ... }
  *   ...
- *   InputManager.dispose();
+ *   dispose();
  *
  * The InputManager is standalone — no ECS or Three.js dependency.
  * InputSystem (in src/systems/) will read this and write to ECS components.
  */
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
-export interface MouseDelta {
-  x: number;
-  y: number;
-}
-
 export interface InputSnapshot {
+  /** Set of currently held key codes (e.g. 'KeyW', 'Space', 'ShiftLeft'). */
   readonly keys: ReadonlySet<string>;
+  /** Accumulated mouse X delta since last getState() call (pixels). */
   readonly mouseX: number;
+  /** Accumulated mouse Y delta since last getState() call (pixels). */
   readonly mouseY: number;
+  /** Whether the pointer is currently locked to the canvas. */
   readonly isLocked: boolean;
 }
 
-// ── State ───────────────────────────────────────────────────────────────────
-
-const _keysDown = new Set<string>();
-const _prevKeysDown = new Set<string>();
-let _mouseDeltaX = 0;
-let _mouseDeltaY = 0;
-let _isPointerLocked = false;
+// ── State ───────────────────────────────────────────────
+const keys = new Set<string>();
+let mouseDeltaX = 0;
+let mouseDeltaY = 0;
+let isLocked = false;
 let _canvas: HTMLCanvasElement | null = null;
 
-// Bound handlers (kept for dispose)
-let _onKeyDown: ((e: KeyboardEvent) => void) | null = null;
-let _onKeyUp: ((e: KeyboardEvent) => void) | null = null;
-let _onMouseMove: ((e: MouseEvent) => void) | null = null;
-let _onPointerLockChange: (() => void) | null = null;
-let _onPointerLockError: (() => void) | null = null;
-let _onVisibilityChange: (() => void) | null = null;
+let overlay: HTMLElement | null = null;
 
-// ── Public API ──────────────────────────────────────────────────────────────
+// Bound handlers stored for removal on dispose
+let boundOnKeyDown: ((e: KeyboardEvent) => void) | null = null;
+let boundOnKeyUp: ((e: KeyboardEvent) => void) | null = null;
+let boundOnMouseMove: ((e: MouseEvent) => void) | null = null;
+let boundOnPointerLockChange: (() => void) | null = null;
+let boundOnPointerLockError: (() => void) | null = null;
+let boundOnOverlayClick: (() => void) | null = null;
+let boundOnVisibilityChange: (() => void) | null = null;
 
+/**
+ * Initialize input listeners.
+ * Call once after the canvas is in the DOM.
+ */
 export function init(canvas: HTMLCanvasElement): void {
-  if (_canvas) {
-    console.warn('[InputManager] Already initialised — call dispose() first');
-    return;
-  }
+  if (_canvas) return;
   _canvas = canvas;
+  overlay = document.getElementById('overlay');
 
-  _onKeyDown = (e: KeyboardEvent) => {
+  boundOnKeyDown = (e: KeyboardEvent) => {
     if (e.repeat) return;
-    _keysDown.add(e.code);
+    keys.add(e.code);
   };
-  document.addEventListener('keydown', _onKeyDown);
+  document.addEventListener('keydown', boundOnKeyDown);
 
-  _onKeyUp = (e: KeyboardEvent) => {
-    _keysDown.delete(e.code);
-  };
-  document.addEventListener('keyup', _onKeyUp);
+  boundOnKeyUp = (e: KeyboardEvent) => keys.delete(e.code);
+  document.addEventListener('keyup', boundOnKeyUp);
 
-  _onMouseMove = (e: MouseEvent) => {
-    if (_isPointerLocked) {
-      _mouseDeltaX += e.movementX;
-      _mouseDeltaY += e.movementY;
+  boundOnMouseMove = (e: MouseEvent) => {
+    if (isLocked) {
+      mouseDeltaX += e.movementX;
+      mouseDeltaY += e.movementY;
     }
   };
-  document.addEventListener('mousemove', _onMouseMove);
+  document.addEventListener('mousemove', boundOnMouseMove);
 
-  _onPointerLockChange = () => {
-    _isPointerLocked = document.pointerLockElement === _canvas;
-    const overlay = document.getElementById('overlay');
+  boundOnPointerLockChange = () => {
+    isLocked = document.pointerLockElement === _canvas;
     if (overlay) {
-      overlay.classList.toggle('hidden', _isPointerLocked);
+      overlay.classList.toggle('hidden', isLocked);
     }
   };
-  document.addEventListener('pointerlockchange', _onPointerLockChange);
+  document.addEventListener('pointerlockchange', boundOnPointerLockChange);
 
-  _onPointerLockError = () => {
-    console.warn('[InputManager] Pointer lock request denied');
+  boundOnPointerLockError = () => { isLocked = false; };
+  document.addEventListener('pointerlockerror', boundOnPointerLockError);
+
+  boundOnOverlayClick = () => {
+    if (_canvas) _canvas.requestPointerLock();
   };
-  document.addEventListener('pointerlockerror', _onPointerLockError);
+  if (overlay) {
+    overlay.addEventListener('click', boundOnOverlayClick);
+  }
 
-  _onVisibilityChange = () => {
+  boundOnVisibilityChange = () => {
     if (document.hidden) {
-      _keysDown.clear();
-      _mouseDeltaX = 0;
-      _mouseDeltaY = 0;
+      keys.clear();
+      mouseDeltaX = 0;
+      mouseDeltaY = 0;
     }
   };
-  document.addEventListener('visibilitychange', _onVisibilityChange);
-
-  _isPointerLocked = document.pointerLockElement === canvas;
+  document.addEventListener('visibilitychange', boundOnVisibilityChange);
 }
 
-export function dispose(): void {
-  if (_onKeyDown) document.removeEventListener('keydown', _onKeyDown);
-  if (_onKeyUp) document.removeEventListener('keyup', _onKeyUp);
-  if (_onMouseMove) document.removeEventListener('mousemove', _onMouseMove);
-  if (_onPointerLockChange) document.removeEventListener('pointerlockchange', _onPointerLockChange);
-  if (_onPointerLockError) document.removeEventListener('pointerlockerror', _onPointerLockError);
-  if (_onVisibilityChange) document.removeEventListener('visibilitychange', _onVisibilityChange);
-
-  _onKeyDown = null; _onKeyUp = null; _onMouseMove = null;
-  _onPointerLockChange = null; _onPointerLockError = null; _onVisibilityChange = null;
-  _keysDown.clear(); _prevKeysDown.clear();
-  _mouseDeltaX = 0; _mouseDeltaY = 0;
-  _isPointerLocked = false; _canvas = null;
+/**
+ * Get a snapshot of the current input state.
+ * Resets accumulated mouse delta to zero after reading.
+ * Call once per frame, typically at the start of InputSystem.
+ */
+export function getState(): InputSnapshot {
+  const state: InputSnapshot = {
+    keys: new Set(keys),
+    mouseX: mouseDeltaX,
+    mouseY: mouseDeltaY,
+    isLocked,
+  };
+  mouseDeltaX = 0;
+  mouseDeltaY = 0;
+  return state;
 }
 
+/**
+ * Check if a specific key is currently held down.
+ */
+export function isKeyDown(code: string): boolean {
+  return keys.has(code);
+}
+
+/** Whether the pointer is currently locked to the canvas. */
+export function isPointerLocked(): boolean {
+  return isLocked;
+}
+
+/**
+ * Request pointer lock on the canvas.
+ * Called automatically on overlay click; can also be called manually.
+ */
 export function requestPointerLock(): void {
   if (_canvas) _canvas.requestPointerLock();
 }
 
-export function getState(): InputSnapshot {
-  return {
-    keys: new Set(_keysDown),
-    mouseX: _mouseDeltaX,
-    mouseY: _mouseDeltaY,
-    isLocked: _isPointerLocked,
-  };
-}
-
-export function isKeyDown(key: string): boolean {
-  return _keysDown.has(key);
-}
-
-export function wasKeyPressed(key: string): boolean {
-  return _keysDown.has(key) && !_prevKeysDown.has(key);
-}
-
-export function resetMouseDelta(): MouseDelta {
-  const delta: MouseDelta = { x: _mouseDeltaX, y: _mouseDeltaY };
-  _mouseDeltaX = 0;
-  _mouseDeltaY = 0;
-  return delta;
-}
-
-export function isPointerLocked(): boolean {
-  return _isPointerLocked;
-}
-
+/**
+ * Called at the end of each frame.
+ * Snapshots state for edge detection on the next frame.
+ * Currently a no-op — edge detection will be added when needed.
+ */
 export function endFrame(): void {
-  _prevKeysDown.clear();
-  for (const k of _keysDown) _prevKeysDown.add(k);
+  // Reserved for frame-edge detection
+}
+
+/**
+ * Remove all event listeners and reset internal state.
+ * Call when the game is shutting down or the canvas is being replaced.
+ */
+export function dispose(): void {
+  if (_canvas && document.pointerLockElement === _canvas) {
+    document.exitPointerLock();
+  }
+
+  if (boundOnKeyDown) document.removeEventListener('keydown', boundOnKeyDown);
+  if (boundOnKeyUp) document.removeEventListener('keyup', boundOnKeyUp);
+  if (boundOnMouseMove) document.removeEventListener('mousemove', boundOnMouseMove);
+  if (boundOnPointerLockChange) document.removeEventListener('pointerlockchange', boundOnPointerLockChange);
+  if (boundOnPointerLockError) document.removeEventListener('pointerlockerror', boundOnPointerLockError);
+  if (boundOnVisibilityChange) document.removeEventListener('visibilitychange', boundOnVisibilityChange);
+  if (overlay && boundOnOverlayClick) overlay.removeEventListener('click', boundOnOverlayClick);
+
+  if (overlay) overlay.classList.remove('hidden');
+
+  boundOnKeyDown = boundOnKeyUp = boundOnMouseMove = null;
+  boundOnPointerLockChange = boundOnPointerLockError = null;
+  boundOnOverlayClick = boundOnVisibilityChange = null;
+
+  keys.clear();
+  mouseDeltaX = 0;
+  mouseDeltaY = 0;
+  isLocked = false;
+  _canvas = null;
+  overlay = null;
 }
