@@ -74,18 +74,15 @@ export function init(canvas: HTMLCanvasElement): void {
   _onPointerLockError = () => { console.warn('[InputManager] Pointer lock denied'); };
   document.addEventListener('pointerlockerror', _onPointerLockError);
 
-  _onOverlayClick = () => { canvas.requestPointerLock(); };
-  const overlay = document.getElementById('overlay');
-  if (overlay && _onOverlayClick) overlay.addEventListener('click', _onOverlayClick);
+  _onOverlayClick = () => { if (_canvas) _canvas.requestPointerLock(); };
+  const overlayEl = document.getElementById('overlay');
+  if (overlayEl) overlayEl.addEventListener('click', _onOverlayClick);
 
   _onVisibilityChange = () => {
     if (document.hidden) {
-      _keysDown.clear();
-      _prevKeysDown.clear();
-      _mouseButtons.clear();
-      _prevMouseButtons.clear();
-      _mouseDeltaX = 0;
-      _mouseDeltaY = 0;
+      _keysDown.clear(); _prevKeysDown.clear();
+      _mouseButtons.clear(); _prevMouseButtons.clear();
+      _mouseDeltaX = 0; _mouseDeltaY = 0;
     }
   };
   document.addEventListener('visibilitychange', _onVisibilityChange);
@@ -102,14 +99,14 @@ export function dispose(): void {
   if (_onPointerLockChange) document.removeEventListener('pointerlockchange', _onPointerLockChange);
   if (_onPointerLockError) document.removeEventListener('pointerlockerror', _onPointerLockError);
   if (_onOverlayClick) {
-    const overlay = document.getElementById('overlay');
-    if (overlay) overlay.removeEventListener('click', _onOverlayClick);
+    const overlayEl = document.getElementById('overlay');
+    if (overlayEl) overlayEl.removeEventListener('click', _onOverlayClick);
   }
   if (_onVisibilityChange) document.removeEventListener('visibilitychange', _onVisibilityChange);
   _onKeyDown = null; _onKeyUp = null;
   _onMouseDown = null; _onMouseUp = null; _onMouseMove = null;
   _onPointerLockChange = null; _onPointerLockError = null;
-  _onVisibilityChange = null; _onOverlayClick = null;
+  _onOverlayClick = null; _onVisibilityChange = null;
   _keysDown.clear(); _prevKeysDown.clear();
   _mouseButtons.clear(); _prevMouseButtons.clear();
   _mouseDeltaX = 0; _mouseDeltaY = 0;
