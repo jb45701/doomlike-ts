@@ -1,5 +1,9 @@
 /**
+<<<<<<< Updated upstream
  * main.ts — Game bootstrap entry point.
+=======
+ * main.ts -- Game bootstrap entry point.
+>>>>>>> Stashed changes
  *
  * Creates the Game instance and starts the loop.
  * All Three.js rendering, ECS world, and system pipeline logic

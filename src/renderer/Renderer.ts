@@ -1,5 +1,9 @@
 /**
+<<<<<<< Updated upstream
  * Renderer — Three.js scene setup, camera, sector geometry, and render loop.
+=======
+ * Renderer -- Three.js scene setup, camera, sector geometry, and render loop.
+>>>>>>> Stashed changes
  *
  * Owns the Three.js scene, camera, and WebGLRenderer.
  * Provides methods to sync camera transform from player entity components
@@ -7,8 +11,13 @@
  *
  * Lifecycle:
  *   const renderer = createRenderer(canvas);
+<<<<<<< Updated upstream
  *   renderer.syncCamera(position, rotation);
  *   renderer.render(deltaTime);
+=======
+ *   renderer.syncCamera(world);
+ *   renderer.render();
+>>>>>>> Stashed changes
  *   renderer.dispose();
  */
 import * as THREE from 'three';
@@ -16,7 +25,11 @@ import type { EcsWorld } from '../ecs/World';
 import { Position, Rotation } from '../ecs/Components';
 import { queryPlayerEntity } from '../ecs/queries';
 
+<<<<<<< Updated upstream
 // ── Sector constants ────────────────────────────────────────────────────────
+=======
+// -- Sector constants --------------------------------------------------------
+>>>>>>> Stashed changes
 
 /** Half-width of the default room on X and Z axes. */
 const ROOM_HALF = 128;
@@ -27,7 +40,11 @@ const FLOOR_Y = 0;
 /** Ceiling Y position (height of room). */
 const CEILING_Y = 96;
 
+<<<<<<< Updated upstream
 /** Player eye height above the Y center of the collision capsule. */
+=======
+/** Player eye height above the foot position. */
+>>>>>>> Stashed changes
 const EYE_HEIGHT = 41;
 
 /** Camera field of view (degrees). */
@@ -54,7 +71,11 @@ const FLOOR_COLOR = 0x333344;
 /** Ceiling color. */
 const CEILING_COLOR = 0x222244;
 
+<<<<<<< Updated upstream
 // ── Types ───────────────────────────────────────────────────────────────────
+=======
+// -- Types -------------------------------------------------------------------
+>>>>>>> Stashed changes
 
 export interface RenderContext {
   scene: THREE.Scene;
@@ -65,7 +86,11 @@ export interface RenderContext {
   render: () => void;
 }
 
+<<<<<<< Updated upstream
 // ── Helpers ─────────────────────────────────────────────────────────────────
+=======
+// -- Helpers -----------------------------------------------------------------
+>>>>>>> Stashed changes
 
 /**
  * Create a rectangular wall quad between two floor-level points.
@@ -127,10 +152,17 @@ function buildSector(scene: THREE.Scene): void {
   scene.add(grid);
 }
 
+<<<<<<< Updated upstream
 // ── Factory ─────────────────────────────────────────────────────────────────
 
 export function createRenderer(canvas: HTMLCanvasElement): RenderContext {
   // ── WebGL renderer ──────────────────────────────────────────────────────
+=======
+// -- Factory -----------------------------------------------------------------
+
+export function createRenderer(canvas: HTMLCanvasElement): RenderContext {
+  // -- WebGL renderer -------------------------------------------------------
+>>>>>>> Stashed changes
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: false,
@@ -140,17 +172,29 @@ export function createRenderer(canvas: HTMLCanvasElement): RenderContext {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(0x111111);
 
+<<<<<<< Updated upstream
   // ── Scene ───────────────────────────────────────────────────────────────
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x111111);
 
   // ── Camera ──────────────────────────────────────────────────────────────
+=======
+  // -- Scene ----------------------------------------------------------------
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x111111);
+
+  // -- Camera ---------------------------------------------------------------
+>>>>>>> Stashed changes
   const camera = new THREE.PerspectiveCamera(
     FOV, window.innerWidth / window.innerHeight, NEAR, FAR,
   );
   camera.position.set(0, EYE_HEIGHT, 0);
 
+<<<<<<< Updated upstream
   // ── Lighting (ambient + directional) ────────────────────────────────────
+=======
+  // -- Lighting (ambient + directional) -------------------------------------
+>>>>>>> Stashed changes
   const ambient = new THREE.AmbientLight(0xffffff, AMBIENT_INTENSITY);
   scene.add(ambient);
 
@@ -158,10 +202,17 @@ export function createRenderer(canvas: HTMLCanvasElement): RenderContext {
   dirLight.position.set(100, 200, 100);
   scene.add(dirLight);
 
+<<<<<<< Updated upstream
   // ── Sector geometry ─────────────────────────────────────────────────────
   buildSector(scene);
 
   // ── Resize handler ──────────────────────────────────────────────────────
+=======
+  // -- Sector geometry ------------------------------------------------------
+  buildSector(scene);
+
+  // -- Resize handler -------------------------------------------------------
+>>>>>>> Stashed changes
   const onResize = (): void => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -169,7 +220,11 @@ export function createRenderer(canvas: HTMLCanvasElement): RenderContext {
   };
   window.addEventListener('resize', onResize);
 
+<<<<<<< Updated upstream
   // ── Public API ──────────────────────────────────────────────────────────
+=======
+  // -- Public API -----------------------------------------------------------
+>>>>>>> Stashed changes
   const syncCamera = (world: EcsWorld): void => {
     const entities = queryPlayerEntity(world);
     if (entities.length === 0) return;
