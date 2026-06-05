@@ -27,7 +27,7 @@ const FLOOR_Y = 0;
 /** Ceiling Y position (height of room). */
 const CEILING_Y = 96;
 
-/** Player eye height above the Y center of the collision capsule. */
+/** Player eye height above the foot position. */
 const EYE_HEIGHT = 41;
 
 /** Camera field of view (degrees). */
@@ -38,12 +38,6 @@ const NEAR = 1;
 
 /** Camera far clip plane. */
 const FAR = 500;
-
-/** Ambient light intensity. */
-const AMBIENT_INTENSITY = 0.6;
-
-/** Directional light intensity. */
-const DIR_LIGHT_INTENSITY = 0.8;
 
 /** Wall color. */
 const WALL_COLOR = 0x334466;
@@ -67,9 +61,6 @@ export interface RenderContext {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-/**
- * Create a rectangular wall quad between two floor-level points.
- */
 function createWall(
   x1: number, z1: number,
   x2: number, z2: number,
@@ -84,40 +75,39 @@ function createWall(
   const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geo, mat);
 
-  // Position at wall midpoint, centred vertically
   mesh.position.set((x1 + x2) / 2, (FLOOR_Y + CEILING_Y) / 2, (z1 + z2) / 2);
   mesh.rotation.y = -angle + Math.PI / 2;
+
   return mesh;
 }
 
-/**
- * Build a hardcoded rectangular sector (floor, ceiling, 4 walls).
- */
 function buildSector(scene: THREE.Scene): void {
   // Floor
-  const floorGeo = new THREE.PlaneGeometry(ROOM_HALF * 2, ROOM_HALF * 2);
-  const floorMat = new THREE.MeshBasicMaterial({ color: FLOOR_COLOR, side: THREE.DoubleSide });
-  const floor = new THREE.Mesh(floorGeo, floorMat);
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(ROOM_HALF * 2, ROOM_HALF * 2),
+    new THREE.MeshBasicMaterial({ color: FLOOR_COLOR, side: THREE.DoubleSide }),
+  );
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = FLOOR_Y;
   scene.add(floor);
 
   // Ceiling
-  const ceilGeo = new THREE.PlaneGeometry(ROOM_HALF * 2, ROOM_HALF * 2);
-  const ceilMat = new THREE.MeshBasicMaterial({ color: CEILING_COLOR, side: THREE.DoubleSide });
-  const ceil = new THREE.Mesh(ceilGeo, ceilMat);
+  const ceil = new THREE.Mesh(
+    new THREE.PlaneGeometry(ROOM_HALF * 2, ROOM_HALF * 2),
+    new THREE.MeshBasicMaterial({ color: CEILING_COLOR, side: THREE.DoubleSide }),
+  );
   ceil.rotation.x = Math.PI / 2;
   ceil.position.y = CEILING_Y;
   scene.add(ceil);
 
-  // Walls (4 sides of the rectangular sector)
+  // Walls
   const h = ROOM_HALF;
   scene.add(createWall(-h, -h,  h, -h, WALL_COLOR)); // north
   scene.add(createWall( h, -h,  h,  h, WALL_COLOR)); // east
   scene.add(createWall( h,  h, -h,  h, WALL_COLOR)); // south
   scene.add(createWall(-h,  h, -h, -h, WALL_COLOR)); // west
 
-  // Grid helper (subtle, above floor)
+  // Grid helper
   const grid = new THREE.GridHelper(ROOM_HALF * 2, 16, 0x555577, 0x444466);
   grid.position.y = FLOOR_Y + 0.1;
   scene.add(grid);
@@ -146,11 +136,9 @@ export function createRenderer(canvas: HTMLCanvasElement): RenderContext {
   );
   camera.position.set(0, EYE_HEIGHT, 0);
 
-  // ── Lighting (ambient + directional) ────────────────────────────────────
-  const ambient = new THREE.AmbientLight(0xffffff, AMBIENT_INTENSITY);
-  scene.add(ambient);
-
-  const dirLight = new THREE.DirectionalLight(0xffffff, DIR_LIGHT_INTENSITY);
+  // ── Lighting ────────────────────────────────────────────────────────────
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
   dirLight.position.set(100, 200, 100);
   scene.add(dirLight);
 

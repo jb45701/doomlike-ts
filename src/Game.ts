@@ -27,15 +27,20 @@ import {
 import { InputSystem } from './systems/InputSystem';
 import { MovementSystem } from './systems/MovementSystem';
 import { createRenderer } from './renderer/Renderer';
+import type { RenderContext } from './renderer/Renderer';
 
 /** Max frame delta to prevent spiral-of-death after a long pause (seconds). */
 const MAX_DT = 0.1;
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-export interface GameContext {
+export interface GameState {
   world: EcsWorld;
   player: number;
+  renderer: RenderContext;
+  running: boolean;
+  lastTime: number;
+  rafId: number | null;
   start: () => void;
   stop: () => void;
   dispose: () => void;
@@ -43,7 +48,7 @@ export interface GameContext {
 
 // ── Factory ─────────────────────────────────────────────────────────────────
 
-export function createGame(canvas: HTMLCanvasElement): GameContext {
+export function createGame(canvas: HTMLCanvasElement): GameState {
   // ── ECS world ──────────────────────────────────────────────────────────
   const world = createEcsWorld();
 
@@ -60,7 +65,7 @@ export function createGame(canvas: HTMLCanvasElement): GameContext {
   addComponent(world, player, RigidBody);
   addComponent(world, player, Health);
 
-  // Initial component values (foot-level y — renderer adds EYE_HEIGHT)
+  // Initial component values
   Position.x[player] = 0;
   Position.y[player] = 0;
   Position.z[player] = 0;
@@ -129,5 +134,5 @@ export function createGame(canvas: HTMLCanvasElement): GameContext {
     renderer.dispose();
   };
 
-  return { world, player, start, stop, dispose };
+  return { world, player, renderer, running, lastTime, rafId, start, stop, dispose };
 }
