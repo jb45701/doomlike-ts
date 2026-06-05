@@ -26,7 +26,7 @@ import {
 } from './ecs/Components';
 import { InputSystem } from './systems/InputSystem';
 import { MovementSystem } from './systems/MovementSystem';
-import { createRenderer } from './renderer/Renderer';
+import { Renderer } from './renderer/Renderer';
 import type { RenderContext } from './renderer/Renderer';
 
 /** Max frame delta to prevent spiral-of-death after a long pause (seconds). */

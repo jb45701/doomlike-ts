@@ -88,8 +88,13 @@ function createWall(
   const mesh = new THREE.Mesh(geo, mat);
 
   // Position at wall midpoint, centred vertically
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(len, CEILING_Y - FLOOR_Y),
+    new THREE.MeshBasicMaterial({ color: WALL_COLOR, side: THREE.DoubleSide }),
+  );
   mesh.position.set((x1 + x2) / 2, (FLOOR_Y + CEILING_Y) / 2, (z1 + z2) / 2);
-  mesh.rotation.y = -angle + Math.PI / 2;
+  mesh.setRotationFromEuler(new THREE.Euler(0, -angle + Math.PI / 2, 0));
+  return mesh;
 
   return mesh;
 }
