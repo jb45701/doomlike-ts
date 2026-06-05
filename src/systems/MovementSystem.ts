@@ -19,7 +19,7 @@
  *   MovementSystem(world, deltaTime);
  */
 import type { World } from 'bitecs';
-import { query, Not, hasComponent } from 'bitecs';
+import { query, hasComponent } from 'bitecs';
 import {
   InputState,
   Position,
@@ -81,17 +81,15 @@ export function MovementSystem(world: World, deltaTime: number): void {
 
     // ── Grounded detection ────────────────────────────────────────────
     let grounded = false;
-    if (hasComponent(world, RigidBody, eid)) {
+    if (hasComponent(world, eid, RigidBody)) {
       grounded = RigidBody.grounded[eid];
     } else {
       // Without a physics system treat the entity as grounded (debug/freecam)
       grounded = true;
     }
-
     // ── Horizontal acceleration / friction ────────────────────────────
     const hasHorizontalInput = len > 0;
 
-    // Read current velocities (default to 0)
     const vx = Velocity.dx[eid] ?? 0;
     const vz = Velocity.dz[eid] ?? 0;
 
@@ -99,11 +97,9 @@ export function MovementSystem(world: World, deltaTime: number): void {
     let newVz: number;
 
     if (hasHorizontalInput) {
-      // Accelerate toward wish direction
       newVx = vx + wishDirX * ACCELERATION * deltaTime;
       newVz = vz + wishDirZ * ACCELERATION * deltaTime;
 
-      // Clamp horizontal speed to max
       const hSpeed = Math.sqrt(newVx * newVx + newVz * newVz);
       if (hSpeed > MAX_SPEED) {
         const scale = MAX_SPEED / hSpeed;
@@ -111,7 +107,6 @@ export function MovementSystem(world: World, deltaTime: number): void {
         newVz *= scale;
       }
     } else {
-      // Friction — decelerate toward zero
       const speed = Math.sqrt(vx * vx + vz * vz);
       if (speed > 0) {
         const frictionAmount = FRICTION * deltaTime;
@@ -140,7 +135,7 @@ export function MovementSystem(world: World, deltaTime: number): void {
       newVy += GRAVITY * deltaTime;
     }
 
-    // ── Apply velocities to velocity store ────────────────────────────
+    // ── Apply velocities ──────────────────────────────────────────────
     Velocity.dx[eid] = newVx;
     Velocity.dy[eid] = newVy;
     Velocity.dz[eid] = newVz;
