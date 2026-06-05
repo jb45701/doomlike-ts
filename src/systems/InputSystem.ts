@@ -74,7 +74,7 @@ export function InputSystem(world: EcsWorld, _deltaTime: number): void {
   InputState.altFire[eid]      = InputManager.isMouseButtonDown(2);
   InputState.use[eid]          = InputManager.wasKeyPressed('KeyE');
 
-  // Weapon switching
+  // Weapon switching (classic Doom: Q = next, Z = prev)
   InputState.nextWeapon[eid]   = InputManager.wasKeyPressed('KeyQ');
   InputState.prevWeapon[eid]   = InputManager.wasKeyPressed('KeyZ');
   InputState.weaponSlot1[eid]  = InputManager.wasKeyPressed('Digit1');
