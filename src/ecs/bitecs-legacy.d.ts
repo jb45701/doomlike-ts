@@ -37,27 +37,21 @@ declare module 'bitecs/legacy' {
   };
 
   /**
-   * Schema definition: a record of field name → type string.
-   * Example: { x: Types.f32, y: Types.f32, z: Types.f32 }
-   */
-  type Schema = Record<string, string>;
-
-  /**
    * Component type: an object whose keys match the schema keys,
-   * and each value is the corresponding TypedArray.
+   * and each value is a TypedArray suitable for numeric indexing.
+   * Defined as `any`-indexable to avoid complex conditional type issues
+   * with string literal -> TypedArray mapping.
    */
-  type Component<T extends Schema> = {
-    [K in keyof T]: T[K] extends keyof TypeMap ? TypeMap[T[K]] : never;
-  };
+  type Component = Record<string, Int32Array | Float32Array | Uint8Array | Uint32Array | Uint16Array | Int16Array | Float64Array>;
 
   /**
    * Define a component with a numeric schema.
    * Creates SoA (structure-of-arrays) typed stores for each field.
    */
-  export function defineComponent<T extends Schema>(
-    schema: T,
+  export function defineComponent(
+    schema: Record<string, string>,
     max?: number,
-  ): Component<T>;
+  ): Component;
 
   /** Define a marker component (no data fields). */
   export function defineComponent(
