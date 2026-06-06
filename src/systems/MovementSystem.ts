@@ -25,6 +25,7 @@ import {
   Position,
   Velocity,
   Rotation,
+  Collider,
   RigidBody,
   PlayerTag,
 } from '../ecs/Components';
@@ -146,8 +147,15 @@ export function MovementSystem(world: EcsWorld, deltaTime: number): void {
     Velocity.dz[eid] = newVz;
 
     // ── Integrate position ────────────────────────────────────────────
-    Position.x[eid] = (Position.x[eid] ?? 0) + newVx * deltaTime;
-    Position.y[eid] = (Position.y[eid] ?? 0) + newVy * deltaTime;
-    Position.z[eid] = (Position.z[eid] ?? 0) + newVz * deltaTime;
+    // Entities with a physics collider skip this step — PhysicsSystem
+    // syncs velocity → Rapier, steps the simulation, then reads back
+    // the collision-resolved position from the Rapier world.
+    const hasPhysics = hasComponent(world, eid, Collider) && hasComponent(world, eid, RigidBody);
+
+    if (!hasPhysics) {
+      Position.x[eid] = (Position.x[eid] ?? 0) + newVx * deltaTime;
+      Position.y[eid] = (Position.y[eid] ?? 0) + newVy * deltaTime;
+      Position.z[eid] = (Position.z[eid] ?? 0) + newVz * deltaTime;
+    }
   }
 }

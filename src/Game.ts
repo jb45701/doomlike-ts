@@ -2,7 +2,7 @@
  * Game — main loop, lifecycle, and ECS world management.
  *
  * This is the heart of the game. It owns the ECS world, player entity,
- * renderer, physics world, and the per-frame system pipeline.
+ * renderer, physics world, level data, and the per-frame system pipeline.
  *
  * Lifecycle:
  *   const game = await createGame(canvas);
@@ -21,18 +21,29 @@ import {
   Rotation,
   Velocity,
   InputState,
+  Collider,
   RigidBody,
   Health,
+  ColliderShape,
 } from './ecs/Components';
 import { InputSystem } from './systems/InputSystem';
 import { MovementSystem } from './systems/MovementSystem';
+import { PhysicsSystem, createPhysicsBodyMap } from './systems/PhysicsSystem';
+import type { PhysicsBodyMap } from './systems/PhysicsSystem';
 import { createRenderer } from './renderer/Renderer';
 import type { RenderContext } from './renderer/Renderer';
 import { createRapierWorld } from './physics/RapierWorld';
 import type { RapierContext } from './physics/RapierWorld';
+import { loadLevel, disposeLevel, createDefaultLevel } from './level/LevelLoader';
+import type { LevelLoadResult, LevelData } from './level/LevelTypes';
 
 /** Max frame delta to prevent spiral-of-death after a long pause (seconds). */
 const MAX_DT = 0.1;
+
+/** Player capsule radius. */
+const PLAYER_RADIUS = 16;
+/** Player capsule half-height. */
+const PLAYER_HALF_HEIGHT = 20;
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -41,6 +52,8 @@ export interface GameState {
   player: number;
   renderer: RenderContext;
   physics: RapierContext;
+  physicsBodies: PhysicsBodyMap;
+  level: LevelLoadResult;
   running: boolean;
   lastTime: number;
   rafId: number | null;
@@ -61,6 +74,10 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<GameState> 
   // ── Physics world ──────────────────────────────────────────────────────
   const physics = await createRapierWorld();
 
+  // ── Load level ─────────────────────────────────────────────────────────
+  const levelData: LevelData = createDefaultLevel();
+  const level = loadLevel(physics, renderer.scene, levelData);
+
   // ── Player entity ──────────────────────────────────────────────────────
   const player = createEntity(world);
   addComponent(world, player, PlayerTag);
@@ -68,23 +85,33 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<GameState> 
   addComponent(world, player, Rotation);
   addComponent(world, player, Velocity);
   addComponent(world, player, InputState);
+  addComponent(world, player, Collider);
   addComponent(world, player, RigidBody);
   addComponent(world, player, Health);
 
-  // Initial component values
-  Position.x[player] = 0;
-  Position.y[player] = 0;
-  Position.z[player] = 0;
-  Rotation.yaw[player] = 0;
+  // Initial component values — placed at level's player start
+  Position.x[player] = level.playerStart.x;
+  Position.y[player] = level.playerStart.y;
+  Position.z[player] = level.playerStart.z;
+  Rotation.yaw[player] = level.playerStart.angle;
   Rotation.pitch[player] = 0;
   Velocity.dx[player] = 0;
   Velocity.dy[player] = 0;
   Velocity.dz[player] = 0;
+
+  // Collider: capsule shape at player position
+  Collider.shape[player] = ColliderShape.Capsule;
+  Collider.radius[player] = PLAYER_RADIUS;
+  Collider.height[player] = PLAYER_HALF_HEIGHT;
+
   RigidBody.mass[player] = 1;
   RigidBody.grounded[player] = true;
   Health.current[player] = 100;
   Health.max[player] = 100;
   Health.armor[player] = 0;
+
+  // ── Physics body tracking ──────────────────────────────────────────────
+  const physicsBodies = createPhysicsBodyMap();
 
   // ── Input ──────────────────────────────────────────────────────────────
   InputManager.init(canvas);
@@ -105,11 +132,13 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<GameState> 
     // 1. InputSystem — reads InputManager → writes InputState + Rotation
     InputSystem(world, dt);
 
-    // 2. MovementSystem — reads InputState → updates Velocity + Position
+    // 2. MovementSystem — reads InputState → updates Velocity
+    //    (position integration skipped for physics-managed entities)
     MovementSystem(world, dt);
 
-    // 3. Physics step — advance Rapier simulation (collision resolution)
-    physics.step(dt);
+    // 3. PhysicsSystem — syncs ECS state → Rapier bodies, steps physics,
+    //    reads back collision-resolved positions, updates grounded state
+    PhysicsSystem(world, physics, physicsBodies, dt);
 
     // 4. End frame — snapshot prev-state for edge detection next tick
     InputManager.endFrame();
@@ -139,10 +168,11 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<GameState> 
 
   const dispose = (): void => {
     stop();
+    disposeLevel(level, physics);
     InputManager.dispose();
     renderer.dispose();
     physics.dispose();
   };
 
-  return { world, player, renderer, physics, running, lastTime, rafId, start, stop, dispose };
+  return { world, player, renderer, physics, physicsBodies, level, running, lastTime, rafId, start, stop, dispose };
 }

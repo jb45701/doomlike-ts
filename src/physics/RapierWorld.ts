@@ -4,8 +4,8 @@
  * Provides an async factory (`createRapierWorld`) that:
  *  - Initialises Rapier WASM (RAPIER.init)
  *  - Creates a Rapier World with Doom-like gravity (0, -800, 0)
- *  - Exposes a RapierContext with step(), wall/player collider helpers,
- *    raycasting, and cleanup.
+ *  - Exposes a RapierContext with step(), collider helpers, body tracking,
+ *    raycasting, grounded detection, and cleanup.
  *
  * Lifecycle:
  *   const physics = await createRapierWorld();
@@ -52,6 +52,13 @@ export interface RaycastHit {
   toi: number;
 }
 
+export interface KinematicBodyResult {
+  /** Numeric handle of the created collider. */
+  colliderHandle: number;
+  /** Numeric handle of the created rigid body. */
+  bodyHandle: number;
+}
+
 export interface RapierContext {
   /** The raw Rapier physics world (exposed for advanced queries). */
   readonly world: RAPIER.World;
@@ -71,12 +78,37 @@ export interface RapierContext {
 
   /**
    * Add a kinematic-position-based capsule collider for the player.
-   * Returns the collider handle.
+   * Returns the collider handle and body handle.
    *
    * The capsule dimensions are fixed: radius 16, half-height 20 (total ~72 units).
    * See the Architecture Guide for the player collider specification.
    */
-  addPlayerCapsule: (position: Vec3) => number;
+  addPlayerCapsule: (position: Vec3) => KinematicBodyResult;
+
+  /**
+   * Create a sphere collider attached to a dynamic rigid body (for projectiles).
+   * Returns the collider handle and body handle.
+   */
+  addDynamicSphere: (position: Vec3, radius: number) => KinematicBodyResult;
+
+  /**
+   * Set the next kinematic translation for a tracked rigid body.
+   * Call this before `step()` to move kinematic bodies.
+   */
+  setKinematicTranslation: (bodyHandle: number, position: Vec3) => void;
+
+  /**
+   * Read back the current world-space translation of a tracked rigid body.
+   * Call this after `step()` to get the resolved position.
+   */
+  getBodyTranslation: (bodyHandle: number) => Vec3;
+
+  /**
+   * Check whether the body attached to the given collider handle is in contact
+   * with any surface whose normal points upward (i.e. standing on floor/ground).
+   * Call this after `step()`.
+   */
+  isGrounded: (colliderHandle: number) => boolean;
 
   /**
    * Remove a collider from the physics world by its handle.
@@ -108,8 +140,8 @@ export async function createRapierWorld(): Promise<RapierContext> {
   // Track collider handles → Collider objects for removal
   const colliderMap = new Map<number, Collider>();
 
-  // Keep a reference to the player body so we can update its position later
-  // (player body reference stored when PhysicsSystem syncs positions)
+  // Track rigid body handles → RigidBody objects for kinematic sync
+  const bodyMap = new Map<number, RAPIER.RigidBody>();
 
   // Accumulator for fixed-timestep physics stepping
   let accumulator = 0;
@@ -141,26 +173,95 @@ export async function createRapierWorld(): Promise<RapierContext> {
     );
     const collider = world.createCollider(colliderDesc, body);
     colliderMap.set(collider.handle, collider);
+    bodyMap.set(body.handle, body);
     return collider.handle;
   }
 
   // ── addPlayerCapsule ───────────────────────────────────────────────────
-  function addPlayerCapsule(position: Vec3): number {
+  function addPlayerCapsule(position: Vec3): KinematicBodyResult {
     const bodyDesc = RAPIER.RigidBodyDesc.kinematicPositionBased()
       .setTranslation(position.x, position.y, position.z);
     const body = world.createRigidBody(bodyDesc);
-    // body reference stored for future PhysicsSystem position syncing
+    bodyMap.set(body.handle, body);
 
     const colliderDesc = RAPIER.ColliderDesc.capsule(PLAYER_HALF_HEIGHT, PLAYER_RADIUS);
     const collider = world.createCollider(colliderDesc, body);
     colliderMap.set(collider.handle, collider);
-    return collider.handle;
+
+    return { colliderHandle: collider.handle, bodyHandle: body.handle };
+  }
+
+  // ── addDynamicSphere ───────────────────────────────────────────────────
+  function addDynamicSphere(position: Vec3, radius: number): KinematicBodyResult {
+    const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
+      .setTranslation(position.x, position.y, position.z);
+    const body = world.createRigidBody(bodyDesc);
+    bodyMap.set(body.handle, body);
+
+    const colliderDesc = RAPIER.ColliderDesc.ball(radius);
+    const collider = world.createCollider(colliderDesc, body);
+    colliderMap.set(collider.handle, collider);
+
+    return { colliderHandle: collider.handle, bodyHandle: body.handle };
+  }
+
+  // ── setKinematicTranslation ────────────────────────────────────────────
+  function setKinematicTranslation(bodyHandle: number, position: Vec3): void {
+    const body = bodyMap.get(bodyHandle);
+    if (body) {
+      body.setNextKinematicTranslation({ x: position.x, y: position.y, z: position.z });
+    }
+  }
+
+  // ── getBodyTranslation ─────────────────────────────────────────────────
+  function getBodyTranslation(bodyHandle: number): Vec3 {
+    const body = bodyMap.get(bodyHandle);
+    if (!body) return { x: 0, y: 0, z: 0 };
+    const t = body.translation();
+    return { x: t.x, y: t.y, z: t.z };
+  }
+
+  // ── isGrounded ─────────────────────────────────────────────────────────
+  function isGrounded(colliderHandle: number): boolean {
+    const collider = colliderMap.get(colliderHandle);
+    if (!collider || !collider.isValid()) return false;
+
+    let grounded = false;
+
+    // Iterate over all colliders in contact with this one
+    world.contactPairsWith(collider, (otherCollider) => {
+      if (grounded) return;
+
+      // Examine contact manifolds for this collider pair
+      world.contactPair(collider, otherCollider, (manifold, flipped) => {
+        if (grounded) return;
+
+        // Get the contact normal in the frame of the other (non-player) collider.
+        // If not flipped: localNormal2 belongs to otherCollider (collider2).
+        // If flipped: localNormal1 belongs to otherCollider.
+        const normal = flipped ? manifold.localNormal1() : manifold.localNormal2();
+
+        // A normal with Y > 0.3 means the surface is mostly upward-facing —
+        // the player is standing on it. This threshold allows ~73° slopes
+        // while excluding walls and ceilings.
+        if (normal.y > 0.3) {
+          grounded = true;
+        }
+      });
+    });
+
+    return grounded;
   }
 
   // ── removeCollider ─────────────────────────────────────────────────────
   function removeCollider(handle: number): void {
     const collider = colliderMap.get(handle);
     if (collider && collider.isValid()) {
+      // Also remove the parent body from tracking
+      const parent = collider.parent();
+      if (parent) {
+        bodyMap.delete(parent.handle);
+      }
       world.removeCollider(collider, true);
       colliderMap.delete(handle);
     }
@@ -194,6 +295,7 @@ export async function createRapierWorld(): Promise<RapierContext> {
   // ── dispose ────────────────────────────────────────────────────────────
   function dispose(): void {
     colliderMap.clear();
+    bodyMap.clear();
     world.free();
   }
 
@@ -202,6 +304,10 @@ export async function createRapierWorld(): Promise<RapierContext> {
     step,
     addWallCollider,
     addPlayerCapsule,
+    addDynamicSphere,
+    setKinematicTranslation,
+    getBodyTranslation,
+    isGrounded,
     removeCollider,
     raycast,
     dispose,
