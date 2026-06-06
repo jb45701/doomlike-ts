@@ -28,7 +28,6 @@ import {
 import { queryPhysicsBodies } from '../ecs/queries';
 import type { RapierContext, Vec3 } from '../physics/RapierWorld';
 import { createPlayerCapsule } from '../physics/CollisionShapes';
-import { FIXED_DT } from '../constants';
 
 /** Minimum Y velocity for considering the entity in freefall. */
 const FREE_FALL_THRESHOLD = 5;
@@ -56,7 +55,7 @@ export function PhysicsSystem(
   world: EcsWorld,
   physics: RapierContext,
   bodyMap: PhysicsBodyMap,
-  _deltaTime: number,
+  deltaTime: number,
 ): void {
   // Query physics-managed entities (Collider + RigidBody).
   // Position and Velocity are read directly per-entity rather than used
@@ -73,12 +72,12 @@ export function PhysicsSystem(
       createPhysicsBody(world, physics, bodyMap, eid);
     } else {
       // Existing body — sync ECS state → Rapier.
-      syncToRapier(world, physics, bodyMap, eid, bodyHandle);
+      syncToRapier(world, physics, bodyMap, eid, bodyHandle, deltaTime);
     }
   }
 
   // Step the physics simulation (fixed timestep handled inside physics).
-  physics.step(_deltaTime);
+  physics.step(deltaTime);
 
   // Read resolved positions back from Rapier into ECS.
   for (let i = 0; i < entities.length; i++) {
@@ -132,15 +131,17 @@ function syncToRapier(
   _bodyMap: PhysicsBodyMap,
   eid: number,
   bodyHandle: number,
+  dt: number,
 ): void {
   const shape = Collider.shape[eid] ?? ColliderShape.Capsule;
 
   if (shape === ColliderShape.Capsule) {
     // Kinematic body — set target translation from current position + velocity.
-    // Uses FIXED_DT (1/60) to stay consistent with Rapier's fixed substeps
-    // rather than the frame deltaTime (which may be longer if the accumulator
-    // runs multiple substeps). This ensures the kinematic target matches the
-    // per-substep displacement Rapier expects.
+    // Uses the frame deltaTime so movement is frame-rate independent:
+    // at 60 FPS → velocity * 1/60 per frame × 60 = velocity/sec
+    // at 30 FPS → velocity * 1/30 per frame × 30 = velocity/sec
+    // Rapier's step() internally divides by substep count, so
+    // setNextKinematicTranslation only needs the total displacement.
     const px = Position.x[eid] ?? 0;
     const py = Position.y[eid] ?? 0;
     const pz = Position.z[eid] ?? 0;
@@ -149,9 +150,9 @@ function syncToRapier(
     const vz = Velocity.dz[eid] ?? 0;
 
     physics.setKinematicTranslation(bodyHandle, {
-      x: px + vx * FIXED_DT,
-      y: py + vy * FIXED_DT,
-      z: pz + vz * FIXED_DT,
+      x: px + vx * dt,
+      y: py + vy * dt,
+      z: pz + vz * dt,
     });
   }
   // Dynamic bodies (spheres for projectiles) get their velocity set directly.
