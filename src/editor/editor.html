@@ -1,225 +1,182 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Doomlike FPS — Map Editor</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; color: #ccc; font-family: 'Courier New', monospace; font-size: 13px; }
-      #app { display: flex; flex-direction: column; height: 100vh; }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Doomlike Map Editor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; color: #ccc; font-family: 'Courier New', monospace; font-size: 14px; }
 
-      /* Toolbar */
-      #toolbar {
-        display: flex; align-items: center; gap: 6px;
-        padding: 6px 12px; background: #16213e;
-        border-bottom: 1px solid #0f3460;
-        user-select: none; flex-shrink: 0;
-      }
-      #toolbar .title { font-size: 1rem; font-weight: bold; color: #e94560; margin-right: 14px; }
-      #toolbar button, #toolbar select {
-        background: #0f3460; color: #ccc; border: 1px solid #1a1a3e;
-        padding: 4px 10px; cursor: pointer; font-family: inherit; font-size: 12px;
-      }
-      #toolbar button:hover { background: #1a4a7a; }
-      #toolbar button.active { background: #e94560; color: #fff; }
-      #toolbar .separator { width: 1px; height: 20px; background: #333; margin: 0 4px; }
-      #toolbar label { color: #888; font-size: 11px; }
-      #toolbar input[type="number"] { width: 48px; background: #0f3460; color: #ccc; border: 1px solid #1a1a3e; padding: 2px 4px; font-family: inherit; font-size: 12px; }
-      #toolbar input[type="checkbox"] { margin: 0 2px 0 0; }
-      #toolbar .level-name { margin-left: auto; color: #666; font-size: 11px; }
-      #file-input { display: none; }
+    /* ── Toolbar ─────────────────────────────────────── */
+    #toolbar {
+      position: fixed; top: 0; left: 0; right: 0; height: 40px;
+      background: #16213e; border-bottom: 1px solid #0f3460;
+      display: flex; align-items: center; gap: 4px; padding: 0 8px;
+      z-index: 100;
+    }
+    #toolbar .brand { color: #e94560; font-weight: bold; margin-right: 16px; font-size: 16px; }
+    #toolbar .level-name { color: #888; font-size: 12px; margin-right: 16px; }
+    #toolbar button {
+      background: #0f3460; color: #ccc; border: none; padding: 4px 12px;
+      cursor: pointer; font-family: inherit; font-size: 12px; border-radius: 3px;
+    }
+    #toolbar button:hover { background: #1a5276; }
+    #toolbar button.active { background: #e94560; color: #fff; }
+    #toolbar .sep { width: 1px; height: 24px; background: #333; margin: 0 6px; }
+    #toolbar label { font-size: 11px; color: #888; margin-left: 8px; }
+    #toolbar input[type="checkbox"] { margin-right: 4px; vertical-align: middle; }
+    #toolbar select {
+      background: #0f3460; color: #ccc; border: 1px solid #333;
+      font-family: inherit; font-size: 12px; padding: 2px 6px; border-radius: 3px;
+    }
 
-      /* Body */
-      #body { display: flex; flex: 1; overflow: hidden; }
-      #canvas-panel { flex: 1; position: relative; overflow: hidden; background: #111; cursor: crosshair; }
-      #canvas-panel canvas { display: block; width: 100%; height: 100%; }
+    /* ── Canvas panel ────────────────────────────────── */
+    #canvas-panel {
+      position: fixed; top: 40px; left: 0; right: 280px; bottom: 120px;
+      background: #2a2a3e;
+    }
+    #canvas-panel canvas {
+      display: block; width: 100%; height: 100%; cursor: crosshair;
+    }
 
-      /* Properties panel */
-      #properties-panel {
-        width: 280px; overflow-y: auto; flex-shrink: 0;
-        background: #16213e; border-left: 1px solid #0f3460;
-        padding: 12px;
-      }
-      #properties-panel h3 {
-        font-size: 12px; color: #e94560; text-transform: uppercase;
-        letter-spacing: 2px; margin-bottom: 8px; padding-bottom: 4px;
-        border-bottom: 1px solid #0f3460;
-      }
-      #properties-panel .prop-group { margin-bottom: 10px; }
-      #properties-panel .prop-group label { display: block; font-size: 11px; color: #888; margin-bottom: 2px; }
-      #properties-panel .prop-group input,
-      #properties-panel .prop-group select { width: 100%; padding: 3px 6px; background: #0f3460; color: #ccc; border: 1px solid #1a1a3e; font-family: inherit; font-size: 12px; }
-      #properties-panel .prop-group input[type="range"] { padding: 0; }
-      #properties-panel .prop-row { display: flex; gap: 6px; }
-      #properties-panel .prop-row > div { flex: 1; }
-      #properties-panel .prop-row input { width: 100%; }
-      #no-sel-msg { color: #555; font-style: italic; text-align: center; padding: 20px 0; }
-      #sector-props, #wall-props, #thing-props { display: none; }
+    /* ── Properties panel ────────────────────────────── */
+    #props-panel {
+      position: fixed; top: 40px; right: 0; width: 280px; bottom: 120px;
+      background: #16213e; border-left: 1px solid #0f3460;
+      overflow-y: auto; padding: 12px;
+    }
+    #props-panel h3 { color: #e94560; font-size: 13px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+    #props-panel .prop-group { margin-bottom: 12px; }
+    #props-panel .prop-group label { display: block; font-size: 11px; color: #888; margin-bottom: 2px; }
+    #props-panel .prop-group input, #props-panel .prop-group select {
+      width: 100%; padding: 4px 6px; background: #0f3460; color: #ccc;
+      border: 1px solid #333; border-radius: 3px; font-family: inherit; font-size: 12px;
+    }
+    #props-panel .prop-group input:focus, #props-panel .prop-group select:focus {
+      outline: none; border-color: #e94560;
+    }
+    #props-panel .no-selection {
+      text-align: center; color: #555; margin-top: 40px; font-size: 13px;
+    }
 
-      /* Asset browser */
-      #asset-browser {
-        height: 100px; overflow-y: auto; flex-shrink: 0;
-        background: #16213e; border-top: 1px solid #0f3460;
-        padding: 6px 12px;
-      }
-      #asset-browser .tabs { display: flex; gap: 4px; margin-bottom: 6px; }
-      #asset-browser .tabs button {
-        background: #0f3460; color: #888; border: 1px solid #1a1a3e;
-        padding: 2px 10px; cursor: pointer; font-size: 11px; font-family: inherit;
-      }
-      #asset-browser .tabs button.active { color: #e94560; border-color: #e94560; }
-      .asset-tile {
-        width: 48px; height: 48px; border: 2px solid #333; cursor: pointer;
-        display: inline-flex; align-items: center; justify-content: center;
-        font-size: 9px; color: #888; text-align: center; position: relative; user-select: none;
-        margin: 2px; vertical-align: top;
-      }
-      .asset-tile:hover { border-color: #e94560; }
-      .asset-tile.selected { border-color: #44ff44; }
-      .asset-tile .name {
-        position: absolute; bottom: 0; left: 0; right: 0;
-        background: rgba(0,0,0,0.7); font-size: 8px; padding: 1px 2px;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      }
+    /* ── Asset browser ───────────────────────────────── */
+    #asset-browser {
+      position: fixed; bottom: 0; left: 0; right: 280px; height: 120px;
+      background: #12122a; border-top: 1px solid #0f3460;
+      display: flex; flex-direction: column;
+    }
+    #asset-browser .tabs {
+      display: flex; gap: 0; height: 28px; background: #0d0d1f;
+    }
+    #asset-browser .tabs button {
+      background: transparent; color: #666; border: none; padding: 4px 16px;
+      cursor: pointer; font-family: inherit; font-size: 11px;
+      border-right: 1px solid #1a1a2e;
+    }
+    #asset-browser .tabs button:hover { color: #aaa; }
+    #asset-browser .tabs button.active { color: #e94560; background: #12122a; }
+    #asset-browser .assets {
+      flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;
+    }
+    #asset-browser .asset-tile {
+      width: 48px; height: 48px; border: 2px solid transparent; cursor: pointer; border-radius: 3px;
+      display: flex; align-items: center; justify-content: center; font-size: 9px; color: rgba(255,255,255,0.5);
+      position: relative; overflow: hidden;
+    }
+    #asset-browser .asset-tile:hover { border-color: #e94560; }
+    #asset-browser .asset-tile.selected { border-color: #e94560; box-shadow: 0 0 6px rgba(233,69,96,0.5); }
+    #asset-browser .asset-tile .name {
+      position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6);
+      font-size: 8px; text-align: center; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
 
-      /* Scrollbar */
-      ::-webkit-scrollbar { width: 6px; }
-      ::-webkit-scrollbar-track { background: #111; }
-      ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-    </style>
-  </head>
-  <body>
-    <div id="app">
-      <!-- Toolbar -->
-      <div id="toolbar">
-        <span class="title">MAP EDITOR</span>
-        <button id="btn-new">New</button>
-        <button id="btn-open">Open</button>
-        <button id="btn-save">Save</button>
-        <div class="separator"></div>
-        <button id="btn-undo">↶ Undo</button>
-        <button id="btn-redo">↷ Redo</button>
-        <div class="separator"></div>
-        <button id="btn-draw" class="active">✏️ Draw</button>
-        <button id="btn-select">👆 Select</button>
-        <div class="separator"></div>
-        <label><input type="checkbox" id="chk-snap" checked /> Snap</label>
-        <label>Grid <input type="number" id="grid-size" value="32" min="8" max="256" step="8" /></label>
-        <span class="level-name" id="level-name">Untitled</span>
-      </div>
+    /* ── Scrollbar styling ───────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+  </style>
+</head>
+<body>
+  <!-- ── Toolbar ──────────────────────────────────────────── -->
+  <div id="toolbar">
+    <span class="brand">MAP EDITOR</span>
+    <span class="level-name" id="level-name">Untitled</span>
+    <button id="btn-new" title="New level (Ctrl+N)">New</button>
+    <button id="btn-open" title="Open level JSON (Ctrl+O)">Open</button>
+    <button id="btn-save" title="Save level JSON (Ctrl+S)">Save</button>
+    <div class="sep"></div>
+    <button id="btn-undo" title="Undo (Ctrl+Z)">↩ Undo</button>
+    <button id="btn-redo" title="Redo (Ctrl+Shift+Z)">↪ Redo</button>
+    <div class="sep"></div>
+    <button id="btn-draw" class="active">✏ Draw</button>
+    <button id="btn-select">↗ Select</button>
+    <div class="sep"></div>
+    <label><input type="checkbox" id="chk-snap" checked /> Snap</label>
+    <select id="grid-size"><option value="8">8</option><option value="16">16</option><option value="32" selected>32</option><option value="64">64</option><option value="128">128</option></select>
+  </div>
 
-      <!-- Body -->
-      <div id="body">
-        <div id="canvas-panel"><canvas id="editor-canvas"></canvas></div>
-        <div id="properties-panel">
-          <div id="no-sel-msg">Nothing selected — click a sector or wall</div>
+  <!-- ── 2D Canvas ───────────────────────────────────────── -->
+  <div id="canvas-panel">
+    <canvas id="editor-canvas"></canvas>
+  </div>
 
-          <!-- Sector props (static inputs bound by EditorPanel) -->
-          <div id="sector-props">
-            <h3>Sector</h3>
-            <div class="prop-group">
-              <div class="prop-row">
-                <div><label>Floor Height</label><input type="number" id="sector-floor-height" /></div>
-                <div><label>Ceiling Height</label><input type="number" id="sector-ceil-height" /></div>
-              </div>
-            </div>
-            <div class="prop-group">
-              <label>Floor Texture</label><input type="text" id="sector-floor-tex" />
-            </div>
-            <div class="prop-group">
-              <label>Ceiling Texture</label><input type="text" id="sector-ceil-tex" />
-            </div>
-            <div class="prop-group">
-              <label>Light Level</label><input type="range" id="sector-light" min="0" max="255" />
-            </div>
-            <div class="prop-group">
-              <label>Special</label>
-              <select id="sector-special">
-                <option value="">— None —</option>
-                <option value="secret">Secret</option>
-                <option value="damage_5">Damage 5</option>
-                <option value="damage_10">Damage 10</option>
-                <option value="exit">Exit</option>
-              </select>
-            </div>
-          </div>
+  <!-- ── Hidden file input for Open ──────────────────────── -->
+  <input type="file" id="file-input" accept=".json" style="display:none" />
 
-          <!-- Wall props -->
-          <div id="wall-props">
-            <h3>Wall</h3>
-            <div class="prop-group">
-              <label>Texture</label><input type="text" id="wall-texture" />
-            </div>
-            <div class="prop-group">
-              <label>Portal Sector</label><input type="number" id="wall-portal-sector" placeholder="Sector ID" />
-            </div>
-            <div class="prop-group">
-              <label>Portal Kind</label>
-              <select id="wall-portal-kind">
-                <option value="">— None —</option>
-                <option value="window">Window</option>
-                <option value="door">Door</option>
-                <option value="open">Open</option>
-              </select>
-            </div>
-            <div class="prop-group">
-              <label>Unpegged</label>
-              <select id="wall-unpegged">
-                <option value="">— None —</option>
-                <option value="upper">Upper</option>
-                <option value="lower">Lower</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Thing props -->
-          <div id="thing-props">
-            <h3>Thing</h3>
-            <div class="prop-group">
-              <label>Type</label>
-              <select id="thing-type">
-                <option value="player_start">Player Start</option>
-                <option value="enemy_imp">Imp</option>
-                <option value="enemy_demon">Demon</option>
-                <option value="enemy_zombie">Zombie</option>
-                <option value="weapon_shotgun">Shotgun</option>
-                <option value="health_pack">Health Pack</option>
-                <option value="armor_green">Armor</option>
-                <option value="ammo_shells">Shells</option>
-                <option value="key_blue">Blue Key</option>
-              </select>
-            </div>
-            <div class="prop-group">
-              <div class="prop-row">
-                <div><label>X</label><input type="number" id="thing-x" step="1" /></div>
-                <div><label>Z</label><input type="number" id="thing-z" step="1" /></div>
-              </div>
-            </div>
-            <div class="prop-group">
-              <div class="prop-row">
-                <div><label>Y</label><input type="number" id="thing-y" step="1" /></div>
-                <div><label>Angle</label><input type="number" id="thing-angle" step="0.1" /></div>
-              </div>
-            </div>
-            <div class="prop-group">
-              <button id="btn-delete-thing">🗑 Delete</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Asset browser -->
-      <div id="asset-browser">
-        <div class="tabs">
-          <button data-category="floors" class="active">Floors</button>
-          <button data-category="walls">Walls</button>
-          <button data-category="skies">Skies</button>
-        </div>
-        <div id="asset-grid" class="asset-grid"></div>
+  <!-- ── Properties Panel ────────────────────────────────── -->
+  <div id="props-panel">
+    <div class="no-selection" id="no-sel-msg">Select a sector, wall, or thing to edit its properties.</div>
+    <div id="sector-props" style="display:none">
+      <h3>Sector Properties</h3>
+      <div class="prop-group"><label>Floor Height</label><input type="number" id="sector-floor-height" /></div>
+      <div class="prop-group"><label>Ceiling Height</label><input type="number" id="sector-ceil-height" /></div>
+      <div class="prop-group"><label>Floor Texture</label><input type="text" id="sector-floor-tex" /></div>
+      <div class="prop-group"><label>Ceiling Texture</label><input type="text" id="sector-ceil-tex" /></div>
+      <div class="prop-group"><label>Light Level (0-255)</label><input type="range" id="sector-light" min="0" max="255" /></div>
+      <div class="prop-group"><label>Special</label>
+        <select id="sector-special">
+          <option value="">None</option>
+          <option value="secret">Secret</option>
+          <option value="damage_5">Damage 5</option>
+          <option value="damage_10">Damage 10</option>
+          <option value="exit">Exit</option>
+        </select>
       </div>
     </div>
-    <input type="file" id="file-input" accept=".json" />
-    <script type="module" src="./editor.ts"></script>
-  </body>
+    <div id="wall-props" style="display:none">
+      <h3>Wall Properties</h3>
+      <div class="prop-group"><label>Texture</label><input type="text" id="wall-texture" /></div>
+      <div class="prop-group"><label>Portal Sector ID</label><input type="number" id="wall-portal-sector" placeholder="0 = none" /></div>
+      <div class="prop-group"><label>Portal Kind</label>
+        <select id="wall-portal-kind">
+          <option value="">None</option>
+          <option value="window">Window</option>
+          <option value="door">Door</option>
+          <option value="open">Open</option>
+        </select>
+      </div>
+      <div class="prop-group"><label>Unpegged</label>
+        <select id="wall-unpegged">
+          <option value="">None</option>
+          <option value="upper">Upper</option>
+          <option value="lower">Lower</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Asset Browser ──────────────────────────────────── -->
+  <div id="asset-browser">
+    <div class="tabs">
+      <button class="active" data-category="floors">Floors</button>
+      <button data-category="walls">Walls</button>
+      <button data-category="skies">Skies</button>
+    </div>
+    <div class="assets" id="asset-grid"></div>
+  </div>
+
+  <script type="module" src="./editor.ts"></script>
+</body>
 </html>
