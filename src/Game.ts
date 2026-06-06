@@ -36,14 +36,13 @@ import { createRapierWorld } from './physics/RapierWorld';
 import type { RapierContext } from './physics/RapierWorld';
 import { loadLevel, disposeLevel, createDefaultLevel } from './level/LevelLoader';
 import type { LevelLoadResult, LevelData } from './level/LevelTypes';
+import {
+  PLAYER_RADIUS,
+  PLAYER_HALF_HEIGHT,
+} from './constants';
 
 /** Max frame delta to prevent spiral-of-death after a long pause (seconds). */
 const MAX_DT = 0.1;
-
-/** Player capsule radius. */
-const PLAYER_RADIUS = 16;
-/** Player capsule half-height. */
-const PLAYER_HALF_HEIGHT = 20;
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

@@ -2,9 +2,8 @@
  * PhysicsSystem — Bridges ECS world ↔ Rapier physics world.
  *
  * Each frame:
- *   1. Queries entities with Position + Velocity + Collider + RigidBody
- *      (these are physics-managed entities: player, projectiles, etc.)
- *   2. For each entity, syncs ECS Position to the Rapier body using
+ *   1. Queries entities with Collider + RigidBody (physics-managed bodies)
+ *   2. For each entity, syncs ECS state to the Rapier body using
  *      kinematic translation (for kinematic bodies) or by setting
  *      velocity (for dynamic bodies).
  *   3. Steps the Rapier physics world (fixed 1/60s timestep with substeps).
@@ -17,11 +16,7 @@
  * The bodyMap maps ECS entity IDs to Rapier body handles.
  * When an entity first appears with Collider+RigidBody, the PhysicsSystem
  * creates a corresponding Rapier body and records the mapping.
- *
- * Current implementation handles the player (kinematic capsule). Future
- * phases will add dynamic bodies for projectiles and enemies.
  */
-import { query } from 'bitecs';
 import type { EcsWorld } from '../ecs/World';
 import {
   Position,
@@ -30,8 +25,10 @@ import {
   RigidBody,
   ColliderShape,
 } from '../ecs/Components';
+import { queryPhysicsBodies } from '../ecs/queries';
 import type { RapierContext, Vec3 } from '../physics/RapierWorld';
 import { createPlayerCapsule } from '../physics/CollisionShapes';
+import { FIXED_DT } from '../constants';
 
 /** Minimum Y velocity for considering the entity in freefall. */
 const FREE_FALL_THRESHOLD = 5;
@@ -61,9 +58,11 @@ export function PhysicsSystem(
   bodyMap: PhysicsBodyMap,
   _deltaTime: number,
 ): void {
-  // Queries entities that have both a Collider and a RigidBody component.
-  // These are bodies that need Rapier simulation (player, projectiles, etc.).
-  const entities = query(world, [Position, Velocity, Collider, RigidBody]);
+  // Query physics-managed entities (Collider + RigidBody).
+  // Position and Velocity are read directly per-entity rather than used
+  // as query filters — they're always present on physics bodies but
+  // should not gate the query.
+  const entities = queryPhysicsBodies(world);
 
   for (let i = 0; i < entities.length; i++) {
     const eid = entities[i];
@@ -118,8 +117,11 @@ function createPhysicsBody(
     const result = physics.addDynamicSphere(pos, radius);
     bodyMap.handles.set(eid, result.bodyHandle);
     bodyMap.colliders.set(eid, result.colliderHandle);
+  } else {
+    // Unhandled shape (Box, Ray, etc.) — loud failure so it's not missed
+    // when Phase 3 adds projectiles or enemies.
+    console.warn(`PhysicsSystem: unhandled ColliderShape ${shape} for entity ${eid}`);
   }
-  // Box and Ray shapes can be added in future phases.
 }
 
 // ── Sync: ECS → Rapier ─────────────────────────────────────────────────────
@@ -134,7 +136,11 @@ function syncToRapier(
   const shape = Collider.shape[eid] ?? ColliderShape.Capsule;
 
   if (shape === ColliderShape.Capsule) {
-    // Kinematic body — set target translation from current position + velocity
+    // Kinematic body — set target translation from current position + velocity.
+    // Uses FIXED_DT (1/60) to stay consistent with Rapier's fixed substeps
+    // rather than the frame deltaTime (which may be longer if the accumulator
+    // runs multiple substeps). This ensures the kinematic target matches the
+    // per-substep displacement Rapier expects.
     const px = Position.x[eid] ?? 0;
     const py = Position.y[eid] ?? 0;
     const pz = Position.z[eid] ?? 0;
@@ -142,13 +148,10 @@ function syncToRapier(
     const vy = Velocity.dy[eid] ?? 0;
     const vz = Velocity.dz[eid] ?? 0;
 
-    // Compute target position from MovementSystem's proposed velocity.
-    // The physics step will resolve collisions and may stop the body short.
-    // We use a fixed dt of 1/60 to stay consistent with Rapier's substeps.
     physics.setKinematicTranslation(bodyHandle, {
-      x: px + vx * (1 / 60),
-      y: py + vy * (1 / 60),
-      z: pz + vz * (1 / 60),
+      x: px + vx * FIXED_DT,
+      y: py + vy * FIXED_DT,
+      z: pz + vz * FIXED_DT,
     });
   }
   // Dynamic bodies (spheres for projectiles) get their velocity set directly.

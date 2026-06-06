@@ -4,7 +4,7 @@
  * On load:
  *   1. Creates Rapier colliders for all walls (box shapes along each wall segment)
  *   2. Creates floor/ceiling static bodies
- *   3. Creates Three.js meshes for sector geometry
+ *   3. Creates Three.js meshes for sector geometry (delegated to SectorMeshes)
  *   4. Returns the player start position
  *
  * Lifecycle:
@@ -13,17 +13,20 @@
  */
 import * as THREE from 'three';
 import type { RapierContext } from '../physics/RapierWorld';
-import type { LevelData, LevelLoadResult, Sector } from './LevelTypes';
+import type { LevelData, LevelLoadResult } from './LevelTypes';
 import {
   createWallCollider,
   createFloorCollider,
 } from '../physics/CollisionShapes';
+import { PLAYER_FLOOR_OFFSET } from '../constants';
+import {
+  createWallMesh,
+  createFloorMesh,
+  createCeilingMesh,
+  computeSectorBounds,
+} from './SectorMeshes';
 
 // ── Constants ────────────────────────────────────────────────────────────────
-
-const WALL_COLOR = 0x445566;
-const FLOOR_COLOR = 0x333344;
-const CEILING_COLOR = 0x222244;
 
 /** Half-size of the default test room. */
 const DEFAULT_ROOM_HALF = 128;
@@ -43,7 +46,9 @@ export function createDefaultLevel(): LevelData {
     musicTrack: '',
     ambientLight: 0.6,
     playerStart: {
-      position: { x: 0, y: 0, z: 0 },
+      // Spawn player above the floor so the capsule bottom clears the ground.
+      // PLAYER_FLOOR_OFFSET = halfHeight + radius = 36; +5 gives clearance.
+      position: { x: 0, y: PLAYER_FLOOR_OFFSET + 5, z: 0 },
       angle: 0,
     },
     sectors: [
@@ -66,94 +71,6 @@ export function createDefaultLevel(): LevelData {
   };
 }
 
-// ── Sector geometry helpers ──────────────────────────────────────────────────
-
-function createWallMesh(
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  floorY: number,
-  ceilY: number,
-  color: number,
-): THREE.Mesh {
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const length = Math.sqrt(dx * dx + dy * dy);
-  if (length < 0.001) {
-    return new THREE.Mesh(
-      new THREE.BufferGeometry(),
-      new THREE.MeshBasicMaterial(),
-    );
-  }
-
-  const angle = Math.atan2(dy, dx);
-  const height = ceilY - floorY;
-  const midX = (start.x + end.x) / 2;
-  const midZ = (start.y + end.y) / 2;
-
-  const geo = new THREE.PlaneGeometry(length, height);
-  const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set(midX, (floorY + ceilY) / 2, midZ);
-  mesh.rotation.y = -angle + Math.PI / 2;
-
-  return mesh;
-}
-
-function createFloorMesh(
-  floorY: number,
-  minX: number, maxX: number,
-  minZ: number, maxZ: number,
-  color: number,
-): THREE.Mesh {
-  const width = maxX - minX;
-  const depth = maxZ - minZ;
-  const geo = new THREE.PlaneGeometry(width, depth);
-  const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.set((minX + maxX) / 2, floorY, (minZ + maxZ) / 2);
-  return mesh;
-}
-
-function createCeilingMesh(
-  ceilY: number,
-  minX: number, maxX: number,
-  minZ: number, maxZ: number,
-  color: number,
-): THREE.Mesh {
-  const width = maxX - minX;
-  const depth = maxZ - minZ;
-  const geo = new THREE.PlaneGeometry(width, depth);
-  const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.rotation.x = Math.PI / 2;
-  mesh.position.set((minX + maxX) / 2, ceilY, (minZ + maxZ) / 2);
-  return mesh;
-}
-
-// ── Sector bounding ──────────────────────────────────────────────────────────
-
-function computeSectorBounds(sector: Sector): {
-  minX: number; maxX: number;
-  minZ: number; maxZ: number;
-} {
-  let minX = Infinity, maxX = -Infinity;
-  let minZ = Infinity, maxZ = -Infinity;
-
-  for (const wall of sector.walls) {
-    if (wall.start.x < minX) minX = wall.start.x;
-    if (wall.start.x > maxX) maxX = wall.start.x;
-    if (wall.end.x < minX) minX = wall.end.x;
-    if (wall.end.x > maxX) maxX = wall.end.x;
-    if (wall.start.y < minZ) minZ = wall.start.y;
-    if (wall.start.y > maxZ) maxZ = wall.start.y;
-    if (wall.end.y < minZ) minZ = wall.end.y;
-    if (wall.end.y > maxZ) maxZ = wall.end.y;
-  }
-
-  return { minX, maxX, minZ, maxZ };
-}
-
 // ── Main loader ──────────────────────────────────────────────────────────────
 
 export function loadLevel(
@@ -171,14 +88,14 @@ export function loadLevel(
 
     // Floor mesh
     const floorMesh = createFloorMesh(
-      floorY, bound.minX, bound.maxX, bound.minZ, bound.maxZ, FLOOR_COLOR,
+      floorY, bound.minX, bound.maxX, bound.minZ, bound.maxZ,
     );
     scene.add(floorMesh);
     meshes.push(floorMesh);
 
     // Ceiling mesh
     const ceilMesh = createCeilingMesh(
-      ceilY, bound.minX, bound.maxX, bound.minZ, bound.maxZ, CEILING_COLOR,
+      ceilY, bound.minX, bound.maxX, bound.minZ, bound.maxZ,
     );
     scene.add(ceilMesh);
     meshes.push(ceilMesh);
@@ -197,8 +114,8 @@ export function loadLevel(
 
     // Wall meshes + colliders
     for (const wall of sector.walls) {
-      const mesh = createWallMesh(wall.start, wall.end, floorY, ceilY, WALL_COLOR);
-      if (mesh.geometry.attributes.position === undefined) continue;
+      const mesh = createWallMesh(wall.start, wall.end, floorY, ceilY);
+      if (!mesh) continue;
       scene.add(mesh);
       meshes.push(mesh);
 

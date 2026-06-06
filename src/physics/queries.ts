@@ -13,6 +13,9 @@
  */
 import type { RapierContext, Vec3, RaycastHit } from './RapierWorld';
 
+/** Small epsilon for floating-point tolerance in distance comparisons. */
+const EPSILON = 0.001;
+
 // ── Raycast ─────────────────────────────────────────────────────────────────
 
 /**
@@ -31,7 +34,7 @@ export function raycast(
   const dy = target.y - origin.y;
   const dz = target.z - origin.z;
   const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  if (distance < 0.001) return null; // origin ≈ target, no ray
+  if (distance < EPSILON) return null; // origin ≈ target, no ray
 
   const direction: Vec3 = {
     x: dx / distance,
@@ -48,16 +51,34 @@ export function raycast(
  * Check whether the line from `origin` to `target` is blocked by any
  * physics collider (wall, floor, etc.).
  *
- * Returns `true` if a collider is hit before reaching the target.
- * Returns `false` if the ray reaches the target unobstructed.
- * Returns `false` if origin ≈ target (degenerate ray).
+ * Returns `true` if a collider is hit before reaching the target
+ * (within an epsilon tolerance for floating-point comparisons).
+ * Returns `false` if the ray reaches the target unobstructed,
+ * or if origin ≈ target (degenerate ray).
  */
 export function isLineOfSightBlocked(
   physics: RapierContext,
   origin: Vec3,
   target: Vec3,
 ): boolean {
-  const hit = raycast(physics, origin, target);
+  const dx = target.x - origin.x;
+  const dy = target.y - origin.y;
+  const dz = target.z - origin.z;
+  const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  if (distance < EPSILON) return false; // degenerate ray
+
+  const direction: Vec3 = {
+    x: dx / distance,
+    y: dy / distance,
+    z: dz / distance,
+  };
+
+  const hit = physics.raycast(origin, direction, distance);
   if (!hit) return false; // nothing in the way
-  return true;
+
+  // The raycast already limits maxDistance to `distance`, so any hit
+  // is strictly between origin and target. But to guard against
+  // floating-point boundary hits exactly at the target, compare with
+  // a small tolerance.
+  return hit.toi < distance - EPSILON;
 }

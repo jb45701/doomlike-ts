@@ -15,23 +15,13 @@
  */
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { Collider, RayColliderIntersection } from '@dimforge/rapier3d-compat';
-
-// ── Constants ───────────────────────────────────────────────────────────────
-
-/** Fixed physics timestep (seconds). */
-const FIXED_DT = 1 / 60;
-
-/** Maximum number of substeps per frame to prevent spiral-of-death. */
-const MAX_SUBSTEPS = 4;
-
-/** Downward gravitational acceleration (units/s²). */
-const GRAVITY_Y = -800;
-
-/** Player capsule radius (units). */
-const PLAYER_RADIUS = 16;
-
-/** Player capsule half-height along the Y axis (units). */
-const PLAYER_HALF_HEIGHT = 20;
+import {
+  FIXED_DT,
+  MAX_SUBSTEPS,
+  GRAVITY_Y,
+  PLAYER_RADIUS,
+  PLAYER_HALF_HEIGHT,
+} from '../constants';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
