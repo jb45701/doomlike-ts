@@ -5,6 +5,12 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    rollupOptions: {
+      input: {
+        game: 'index.html',
+        editor: 'src/editor/editor.html',
+      },
+    },
   },
   server: {
     port: 5173,

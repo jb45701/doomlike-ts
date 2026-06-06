@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Doomlike FPS — Map Editor</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; color: #ccc; font-family: 'Courier New', monospace; font-size: 13px; }
+      #app { display: flex; flex-direction: column; height: 100vh; }
+
+      /* Toolbar */
+      #toolbar {
+        display: flex; align-items: center; gap: 6px;
+        padding: 6px 12px; background: #16213e;
+        border-bottom: 1px solid #0f3460;
+        user-select: none; flex-shrink: 0;
+      }
+      #toolbar .title { font-size: 1rem; font-weight: bold; color: #e94560; margin-right: 14px; }
+      #toolbar button, #toolbar select {
+        background: #0f3460; color: #ccc; border: 1px solid #1a1a3e;
+        padding: 4px 10px; cursor: pointer; font-family: inherit; font-size: 12px;
+      }
+      #toolbar button:hover { background: #1a4a7a; }
+      #toolbar button.active { background: #e94560; color: #fff; }
+      #toolbar .separator { width: 1px; height: 20px; background: #333; margin: 0 4px; }
+      #toolbar label { color: #888; font-size: 11px; }
+      #toolbar input[type="number"] { width: 48px; background: #0f3460; color: #ccc; border: 1px solid #1a1a3e; padding: 2px 4px; font-family: inherit; font-size: 12px; }
+      #toolbar input[type="checkbox"] { margin: 0 2px 0 0; }
+      #toolbar .level-name { margin-left: auto; color: #666; font-size: 11px; }
+      #file-input { display: none; }
+
+      /* Body */
+      #body { display: flex; flex: 1; overflow: hidden; }
+      #canvas-panel { flex: 1; position: relative; overflow: hidden; background: #111; cursor: crosshair; }
+      #canvas-panel canvas { display: block; width: 100%; height: 100%; }
+
+      /* Properties panel */
+      #properties-panel {
+        width: 280px; overflow-y: auto; flex-shrink: 0;
+        background: #16213e; border-left: 1px solid #0f3460;
+        padding: 12px;
+      }
+      #properties-panel h3 {
+        font-size: 12px; color: #e94560; text-transform: uppercase;
+        letter-spacing: 2px; margin-bottom: 8px; padding-bottom: 4px;
+        border-bottom: 1px solid #0f3460;
+      }
+      #properties-panel .prop-group { margin-bottom: 10px; }
+      #properties-panel .prop-group label { display: block; font-size: 11px; color: #888; margin-bottom: 2px; }
+      #properties-panel .prop-group input,
+      #properties-panel .prop-group select { width: 100%; padding: 3px 6px; background: #0f3460; color: #ccc; border: 1px solid #1a1a3e; font-family: inherit; font-size: 12px; }
+      #properties-panel .prop-group input[type="range"] { padding: 0; }
+      #properties-panel .prop-row { display: flex; gap: 6px; }
+      #properties-panel .prop-row > div { flex: 1; }
+      #properties-panel .prop-row input { width: 100%; }
+      #no-sel-msg { color: #555; font-style: italic; text-align: center; padding: 20px 0; }
+      #sector-props, #wall-props, #thing-props { display: none; }
+
+      /* Asset browser */
+      #asset-browser {
+        height: 100px; overflow-y: auto; flex-shrink: 0;
+        background: #16213e; border-top: 1px solid #0f3460;
+        padding: 6px 12px;
+      }
+      #asset-browser .tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+      #asset-browser .tabs button {
+        background: #0f3460; color: #888; border: 1px solid #1a1a3e;
+        padding: 2px 10px; cursor: pointer; font-size: 11px; font-family: inherit;
+      }
+      #asset-browser .tabs button.active { color: #e94560; border-color: #e94560; }
+      .asset-tile {
+        width: 48px; height: 48px; border: 2px solid #333; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 9px; color: #888; text-align: center; position: relative; user-select: none;
+        margin: 2px; vertical-align: top;
+      }
+      .asset-tile:hover { border-color: #e94560; }
+      .asset-tile.selected { border-color: #44ff44; }
+      .asset-tile .name {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        background: rgba(0,0,0,0.7); font-size: 8px; padding: 1px 2px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+
+      /* Scrollbar */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #111; }
+      ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <!-- Toolbar -->
+      <div id="toolbar">
+        <span class="title">MAP EDITOR</span>
+        <button id="btn-new">New</button>
+        <button id="btn-open">Open</button>
+        <button id="btn-save">Save</button>
+        <div class="separator"></div>
+        <button id="btn-undo">↶ Undo</button>
+        <button id="btn-redo">↷ Redo</button>
+        <div class="separator"></div>
+        <button id="btn-draw" class="active">✏️ Draw</button>
+        <button id="btn-select">👆 Select</button>
+        <div class="separator"></div>
+        <label><input type="checkbox" id="chk-snap" checked /> Snap</label>
+        <label>Grid <input type="number" id="grid-size" value="32" min="8" max="256" step="8" /></label>
+        <span class="level-name" id="level-name">Untitled</span>
+      </div>
+
+      <!-- Body -->
+      <div id="body">
+        <div id="canvas-panel"><canvas id="editor-canvas"></canvas></div>
+        <div id="properties-panel">
+          <div id="no-sel-msg">Nothing selected — click a sector or wall</div>
+
+          <!-- Sector props (static inputs bound by EditorPanel) -->
+          <div id="sector-props">
+            <h3>Sector</h3>
+            <div class="prop-group">
+              <div class="prop-row">
+                <div><label>Floor Height</label><input type="number" id="sector-floor-height" /></div>
+                <div><label>Ceiling Height</label><input type="number" id="sector-ceil-height" /></div>
+              </div>
+            </div>
+            <div class="prop-group">
+              <label>Floor Texture</label><input type="text" id="sector-floor-tex" />
+            </div>
+            <div class="prop-group">
+              <label>Ceiling Texture</label><input type="text" id="sector-ceil-tex" />
+            </div>
+            <div class="prop-group">
+              <label>Light Level</label><input type="range" id="sector-light" min="0" max="255" />
+            </div>
+            <div class="prop-group">
+              <label>Special</label>
+              <select id="sector-special">
+                <option value="">— None —</option>
+                <option value="secret">Secret</option>
+                <option value="damage_5">Damage 5</option>
+                <option value="damage_10">Damage 10</option>
+                <option value="exit">Exit</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Wall props -->
+          <div id="wall-props">
+            <h3>Wall</h3>
+            <div class="prop-group">
+              <label>Texture</label><input type="text" id="wall-texture" />
+            </div>
+            <div class="prop-group">
+              <label>Portal Sector</label><input type="number" id="wall-portal-sector" placeholder="Sector ID" />
+            </div>
+            <div class="prop-group">
+              <label>Portal Kind</label>
+              <select id="wall-portal-kind">
+                <option value="">— None —</option>
+                <option value="window">Window</option>
+                <option value="door">Door</option>
+                <option value="open">Open</option>
+              </select>
+            </div>
+            <div class="prop-group">
+              <label>Unpegged</label>
+              <select id="wall-unpegged">
+                <option value="">— None —</option>
+                <option value="upper">Upper</option>
+                <option value="lower">Lower</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Thing props -->
+          <div id="thing-props">
+            <h3>Thing</h3>
+            <div class="prop-group">
+              <label>Type</label>
+              <select id="thing-type">
+                <option value="player_start">Player Start</option>
+                <option value="enemy_imp">Imp</option>
+                <option value="enemy_demon">Demon</option>
+                <option value="enemy_zombie">Zombie</option>
+                <option value="weapon_shotgun">Shotgun</option>
+                <option value="health_pack">Health Pack</option>
+                <option value="armor_green">Armor</option>
+                <option value="ammo_shells">Shells</option>
+                <option value="key_blue">Blue Key</option>
+              </select>
+            </div>
+            <div class="prop-group">
+              <div class="prop-row">
+                <div><label>X</label><input type="number" id="thing-x" step="1" /></div>
+                <div><label>Z</label><input type="number" id="thing-z" step="1" /></div>
+              </div>
+            </div>
+            <div class="prop-group">
+              <div class="prop-row">
+                <div><label>Y</label><input type="number" id="thing-y" step="1" /></div>
+                <div><label>Angle</label><input type="number" id="thing-angle" step="0.1" /></div>
+              </div>
+            </div>
+            <div class="prop-group">
+              <button id="btn-delete-thing">🗑 Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Asset browser -->
+      <div id="asset-browser">
+        <div class="tabs">
+          <button data-category="floors" class="active">Floors</button>
+          <button data-category="walls">Walls</button>
+          <button data-category="skies">Skies</button>
+        </div>
+        <div id="asset-grid" class="asset-grid"></div>
+      </div>
+    </div>
+    <input type="file" id="file-input" accept=".json" />
+    <script type="module" src="./editor.ts"></script>
+  </body>
+</html>
