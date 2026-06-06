@@ -14,7 +14,7 @@
  *   7. DeathSystem       — handles entities with Health <= 0
  *   8. DespawnSystem     — removes timed-out entities
  *   9. entityMeshes.sync — syncs entity positions to Three.js meshes
- *  10. WeaponBobSystem  — computes weapon bobbing from player velocity
+ *  10. WeaponBobSystem   — computes weapon bobbing from player velocity
  *  11. endFrame          — snapshots prev-key state for edge detection
  *  12. syncCamera        — updates camera from player Position + Rotation
  *  13. UISystem          — updates HUD HTML elements, consumes game events
@@ -45,7 +45,7 @@ import {
   WeaponKind,
   ColliderShape,
 } from './ecs/Components';
-import { clearEvents } from './events/GameEvents';
+import { InputSystem } from './systems/InputSystem';
 import { WeaponSystem } from './systems/WeaponSystem';
 import { MovementSystem } from './systems/MovementSystem';
 import { PhysicsSystem, createPhysicsBodyMap } from './systems/PhysicsSystem';
@@ -54,6 +54,8 @@ import { ProjectileSystem } from './systems/ProjectileSystem';
 import { DamageSystem } from './systems/DamageSystem';
 import { DeathSystem } from './systems/DeathSystem';
 import { DespawnSystem } from './systems/DespawnSystem';
+import { updateWeaponBob } from './systems/WeaponBobSystem';
+import { UISystem, disposeUI } from './systems/UISystem';
 import { createRenderer } from './renderer/Renderer';
 import type { RenderContext } from './renderer/Renderer';
 import { createRapierWorld } from './physics/RapierWorld';
@@ -241,7 +243,6 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<GameState> 
     renderer.dispose();
     physics.dispose();
     entityMeshes.dispose();
-  };
   };
 
   return { world, player, renderer, physics, physicsBodies, level, running, lastTime, rafId, start, stop, dispose };
