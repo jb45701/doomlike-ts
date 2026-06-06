@@ -115,8 +115,9 @@ export function handleHitscan(
  * Spawn a projectile entity for projectile weapons (chaingun, rocket launcher).
  *
  * The projectile entity has Position, Velocity, Collider, RigidBody,
- * DespawnTimer, and Renderable — but NOT Damage. Damage is applied to the
- * target entity on impact by ProjectileSystem.
+ * DespawnTimer, and Renderable. Damage is also attached to carry the
+ * payload (amount + shooter) for ProjectileSystem to copy to the target
+ * on impact; DamageSystem filters it out because projectiles have no Health.
  */
 export function handleProjectile(
   world: EcsWorld,
@@ -150,8 +151,7 @@ export function handleProjectile(
     z: origin.z + dir.z * 48,
   };
 
-  // Create the projectile entity (no Damage component — damage is on the
-  // target entity, applied by ProjectileSystem on impact)
+  // Create the projectile entity with Damage payload (amount + shooter) for\n  // ProjectileSystem to relay to the target; DamageSystem skips projectiles
   const projEid = addEntity(world);
   addComponent(world, projEid, Position);
   addComponent(world, projEid, Velocity);

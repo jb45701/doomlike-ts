@@ -257,8 +257,10 @@ function syncEntityMeshes(
   meshMap: Map<number, THREE.Mesh>,
 ): void {
   // ── Clean up stale meshes ──────────────────────────────────────────────
+  // Uses hasComponent() rather than checking raw array values because bitecs
+  // does NOT zero typed arrays on removeComponent() — stale values persist.
   for (const [eid, mesh] of meshMap) {
-    if ((Position.x[eid] ?? undefined) === undefined) {
+    if (!hasComponent(world, eid, Position)) {
       scene.remove(mesh);
       mesh.geometry.dispose();
       (mesh.material as THREE.Material).dispose();
