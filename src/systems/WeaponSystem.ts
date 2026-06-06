@@ -18,7 +18,6 @@
  *   WeaponSystem(world, physics, playerEid, dt);
  */
 
-import { addComponent } from 'bitecs';
 import {
   InputState,
   WeaponState,
@@ -28,7 +27,7 @@ import {
 import type { EcsWorld } from '../ecs/World';
 import type { RapierContext, Vec3 } from '../physics/RapierWorld';
 import { emitEvent } from '../events/GameEvents';
-import { PLAYER_FLOOR_OFFSET } from '../constants';
+import { PLAYER_EYE_HEIGHT } from '../constants';
 import { WEAPON_CYCLE_ORDER, getWeaponDef } from '../weapons/weaponDefs';
 import { handleHitscan, handleProjectile, getFireDirection } from '../weapons/weaponFire';
 
@@ -40,18 +39,6 @@ export function WeaponSystem(
   playerEid: number,
   deltaTime: number,
 ): void {
-  // Ensure player has WeaponState
-  if (WeaponState.kind.length <= playerEid) {
-    addComponent(world, playerEid, WeaponState);
-    WeaponState.kind[playerEid] = WeaponKind.Pistol;
-    WeaponState.ammo[playerEid] = 20;
-    WeaponState.maxAmmo[playerEid] = 20;
-    WeaponState.cooldown[playerEid] = 0;
-    WeaponState.firing[playerEid] = false;
-    WeaponState.reloading[playerEid] = false;
-    WeaponState.reloadTimer[playerEid] = 0;
-  }
-
   const eid = playerEid;
 
   // ── Read current state ──────────────────────────────────────────────────
@@ -96,7 +83,7 @@ export function WeaponSystem(
     // Emit weapon_fired event
     const pos: Vec3 = {
       x: Position.x[eid] ?? 0,
-      y: (Position.y[eid] ?? 0) + PLAYER_FLOOR_OFFSET,
+      y: (Position.y[eid] ?? 0) + PLAYER_EYE_HEIGHT,
       z: Position.z[eid] ?? 0,
     };
     const dir = getFireDirection(eid);

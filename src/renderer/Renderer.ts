@@ -15,9 +15,7 @@ import * as THREE from 'three';
 import type { EcsWorld } from '../ecs/World';
 import { Position, Rotation } from '../ecs/Components';
 import { queryPlayerEntity } from '../ecs/queries';
-
-/** Player eye height above the foot position. */
-const EYE_HEIGHT = 41;
+import { PLAYER_EYE_HEIGHT } from '../constants';
 
 /** Camera field of view (degrees). */
 const FOV = 90;
@@ -71,7 +69,7 @@ export function createRenderer(canvas: HTMLCanvasElement): RenderContext {
   const camera = new THREE.PerspectiveCamera(
     FOV, window.innerWidth / window.innerHeight, NEAR, FAR,
   );
-  camera.position.set(0, EYE_HEIGHT, 0);
+  camera.position.set(0, PLAYER_EYE_HEIGHT, 0);
 
   // ── Resize handler ──────────────────────────────────────────────────────
   const onResize = (): void => {
@@ -89,7 +87,7 @@ export function createRenderer(canvas: HTMLCanvasElement): RenderContext {
 
     camera.position.set(
       Position.x[eid] ?? 0,
-      (Position.y[eid] ?? 0) + EYE_HEIGHT,
+      (Position.y[eid] ?? 0) + PLAYER_EYE_HEIGHT,
       Position.z[eid] ?? 0,
     );
 

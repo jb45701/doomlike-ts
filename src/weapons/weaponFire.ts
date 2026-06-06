@@ -24,7 +24,7 @@ import type { EcsWorld } from '../ecs/World';
 import type { RapierContext, Vec3 } from '../physics/RapierWorld';
 import type { WeaponDef } from './weaponDefs';
 import { emitEvent } from '../events/GameEvents';
-import { PLAYER_FLOOR_OFFSET, PROJECTILE_DESPAWN_TIME } from '../constants';
+import { PLAYER_EYE_HEIGHT, PROJECTILE_DESPAWN_TIME } from '../constants';
 
 /** Max hitscan raycast range (units). */
 const HITSCAN_RANGE = 2048;
@@ -62,7 +62,7 @@ export function handleHitscan(
 ): void {
   const origin: Vec3 = {
     x: Position.x[eid] ?? 0,
-    y: (Position.y[eid] ?? 0) + PLAYER_FLOOR_OFFSET,
+    y: (Position.y[eid] ?? 0) + PLAYER_EYE_HEIGHT,
     z: Position.z[eid] ?? 0,
   };
 
@@ -85,9 +85,9 @@ export function handleHitscan(
     const hit = physics.raycast(origin, dir, HITSCAN_RANGE);
     if (!hit) continue;
 
-    // Look up the entity that owns this collider
+    // Look up the entity that owns this collider; skip self-hit
     const targetEid = physics.lookupEntityByCollider(hit.colliderHandle);
-    if (targetEid !== undefined && hasComponent(world, targetEid, Health)) {
+    if (targetEid !== undefined && targetEid !== eid && hasComponent(world, targetEid, Health)) {
       // Apply damage to the target entity
       if (!hasComponent(world, targetEid, Damage)) {
         addComponent(world, targetEid, Damage);
@@ -126,7 +126,7 @@ export function handleProjectile(
 ): void {
   const origin: Vec3 = {
     x: Position.x[eid] ?? 0,
-    y: (Position.y[eid] ?? 0) + PLAYER_FLOOR_OFFSET,
+    y: (Position.y[eid] ?? 0) + PLAYER_EYE_HEIGHT,
     z: Position.z[eid] ?? 0,
   };
   const direction = getFireDirection(eid);
@@ -193,7 +193,6 @@ export function handleProjectile(
 
   // Renderable placeholder
   Renderable.kind[projEid] = RenderableKind.Mesh;
-  Renderable.resourceId[projEid] = 'projectile';
   Renderable.scale[projEid] = def.projectileRadius * 2;
   Renderable.brightness[projEid] = 1; // fullbright
 }

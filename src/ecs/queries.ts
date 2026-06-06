@@ -71,7 +71,10 @@ export function queryAnimatedEntities(world: World): Entities {
 // ── Gameplay ──────────────────────────────────────────────────────────────
 
 export function queryDamageEntities(world: World): Entities {
-  return query(world, [Damage]);
+  // Exclude projectiles (entities with DespawnTimer) — they carry Damage
+  // for shooter-tracking purposes only. Real damage is transferred to the
+  // target entity by ProjectileSystem on impact.
+  return query(world, [Damage, Not(DespawnTimer)]);
 }
 
 export function queryDeadEntities(world: World): Entities {

@@ -23,6 +23,13 @@ export const PLAYER_HALF_HEIGHT = 20;
  */
 export const PLAYER_FLOOR_OFFSET = PLAYER_HALF_HEIGHT + PLAYER_RADIUS;
 
+/**
+ * Player eye height above the capsule foot position.
+ * Used for camera position and weapon fire origin (hitscan raycasts, projectile spawn).
+ * Derived as PLAYER_FLOOR_OFFSET + 5 = 41 (the +5 accounts for the head above the capsule top).
+ */
+export const PLAYER_EYE_HEIGHT = 41;
+
 // ── Physics ──────────────────────────────────────────────────────────────────
 
 /** Fixed physics timestep (seconds). */
