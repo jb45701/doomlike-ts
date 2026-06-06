@@ -14,7 +14,7 @@
  *   7. DeathSystem       — handles entities with Health <= 0
  *   8. DespawnSystem     — removes timed-out entities
  *   9. entityMeshes.sync — syncs entity positions to Three.js meshes
- *  10. WeaponBobSystem   — computes weapon bobbing from player velocity
+ *  10. WeaponBobSystem  — computes weapon bobbing from player velocity
  *  11. endFrame          — snapshots prev-key state for edge detection
  *  12. syncCamera        — updates camera from player Position + Rotation
  *  13. UISystem          — updates HUD HTML elements, consumes game events
@@ -56,13 +56,13 @@ import { DeathSystem } from './systems/DeathSystem';
 import { DespawnSystem } from './systems/DespawnSystem';
 import { updateWeaponBob } from './systems/WeaponBobSystem';
 import { UISystem, disposeUI } from './systems/UISystem';
+import { clearEvents } from './events/GameEvents';
 import { createRenderer } from './renderer/Renderer';
 import type { RenderContext } from './renderer/Renderer';
 import { createRapierWorld } from './physics/RapierWorld';
 import type { RapierContext } from './physics/RapierWorld';
 import { loadLevel, disposeLevel, createDefaultLevel } from './level/LevelLoader';
 import type { LevelLoadResult, LevelData } from './level/LevelTypes';
-import { clearEvents } from './events/GameEvents';
 import { createEntityMeshManager } from './renderer/EntityMeshes';
 import {
   PLAYER_RADIUS,
