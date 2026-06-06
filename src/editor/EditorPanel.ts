@@ -149,7 +149,7 @@ export function createEditorPanel(callbacks: EditorPanelCallbacks): EditorPanel 
     sector.floorTexture = sFloorTex.value || 'floors/default';
     sector.ceilingTexture = sCeilTex.value || 'ceilings/default';
     sector.lightLevel = parseInt(sLight.value) || 128;
-    sector.special = (sSpecial.value || undefined) as any;
+    sector.special = (sSpecial.value || undefined) as Sector['special'];
     callbacks.onPropertyChanged();
   }
 

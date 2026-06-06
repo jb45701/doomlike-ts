@@ -151,7 +151,8 @@ export function handleProjectile(
     z: origin.z + dir.z * 48,
   };
 
-  // Create the projectile entity with Damage payload (amount + shooter) for\n  // ProjectileSystem to relay to the target; DamageSystem skips projectiles
+  // Create the projectile entity with Damage payload (amount + shooter) for
+  // ProjectileSystem to relay to the target; DamageSystem skips projectiles
   const projEid = addEntity(world);
   addComponent(world, projEid, Position);
   addComponent(world, projEid, Velocity);
