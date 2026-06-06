@@ -117,8 +117,8 @@ document.getElementById('btn-redo')?.addEventListener('click', () => {
 });
 
 // Tool buttons
-const btnDraw = document.getElementById('tool-draw')!;
-const btnSelect = document.getElementById('tool-select')!;
+const btnDraw = document.getElementById('btn-draw')!;
+const btnSelect = document.getElementById('btn-select')!;
 
 function activateTool(tool: 'draw' | 'select'): void {
   btnDraw.classList.toggle('active', tool === 'draw');
