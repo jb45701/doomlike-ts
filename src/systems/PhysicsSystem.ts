@@ -154,9 +154,14 @@ function syncToRapier(
       y: py + vy * dt,
       z: pz + vz * dt,
     });
+  } else if (shape === ColliderShape.Sphere) {
+    // Dynamic body — set linear velocity from ECS Velocity component.
+    // This drives projectile movement through Rapier physics.
+    const vx = Velocity.dx[eid] ?? 0;
+    const vy = Velocity.dy[eid] ?? 0;
+    const vz = Velocity.dz[eid] ?? 0;
+    physics.setBodyVelocity(bodyHandle, { x: vx, y: vy, z: vz });
   }
-  // Dynamic bodies (spheres for projectiles) get their velocity set directly.
-  // This will be implemented when ProjectileSystem is added in Phase 3.
 }
 
 // ── Sync: Rapier → ECS ─────────────────────────────────────────────────────
@@ -173,6 +178,15 @@ function syncFromRapier(
   Position.x[eid] = pos.x;
   Position.y[eid] = pos.y;
   Position.z[eid] = pos.z;
+
+  // Read back velocity for dynamic bodies (Rapier modifies it via collision)
+  const shape = Collider.shape[eid];
+  if (shape === ColliderShape.Sphere) {
+    const vel = physics.getBodyVelocity(bodyHandle);
+    Velocity.dx[eid] = vel.x;
+    Velocity.dy[eid] = vel.y;
+    Velocity.dz[eid] = vel.z;
+  }
 
   // ── Grounded detection ─────────────────────────────────────────────────
   // Check contact normals for surfaces that point upward.

@@ -101,6 +101,18 @@ export interface RapierContext {
   isGrounded: (colliderHandle: number) => boolean;
 
   /**
+   * Set the linear velocity of a dynamic rigid body.
+   * Used for projectiles and physics-driven entities.
+   */
+  setBodyVelocity: (bodyHandle: number, velocity: Vec3) => void;
+
+  /**
+   * Read back the current linear velocity of a rigid body.
+   * Call after step() to get velocity modified by collision resolution.
+   */
+  getBodyVelocity: (bodyHandle: number) => Vec3;
+
+  /**
    * Remove a collider from the physics world by its handle.
    * Safe to call with an invalid or already-removed handle.
    */
@@ -243,6 +255,22 @@ export async function createRapierWorld(): Promise<RapierContext> {
     return grounded;
   }
 
+  // ── setBodyVelocity ────────────────────────────────────────────────────
+  function setBodyVelocity(bodyHandle: number, velocity: Vec3): void {
+    const body = bodyMap.get(bodyHandle);
+    if (body) {
+      body.setLinvel({ x: velocity.x, y: velocity.y, z: velocity.z }, true);
+    }
+  }
+
+  // ── getBodyVelocity ────────────────────────────────────────────────────
+  function getBodyVelocity(bodyHandle: number): Vec3 {
+    const body = bodyMap.get(bodyHandle);
+    if (!body) return { x: 0, y: 0, z: 0 };
+    const v = body.linvel();
+    return { x: v.x, y: v.y, z: v.z };
+  }
+
   // ── removeCollider ─────────────────────────────────────────────────────
   function removeCollider(handle: number): void {
     const collider = colliderMap.get(handle);
@@ -300,6 +328,8 @@ export async function createRapierWorld(): Promise<RapierContext> {
     isGrounded,
     removeCollider,
     raycast,
+    setBodyVelocity,
+    getBodyVelocity,
     dispose,
   };
 }
