@@ -25,7 +25,7 @@
  *   game.stop();
  *   game.dispose();
  */
-import { addComponent } from 'bitecs';
+import { addComponent, hasComponent } from 'bitecs';
 import * as THREE from 'three';
 import * as InputManager from './input/InputManager';
 import { createEcsWorld, createEntity } from './ecs/World';
@@ -60,6 +60,7 @@ import { createRapierWorld } from './physics/RapierWorld';
 import type { RapierContext } from './physics/RapierWorld';
 import { loadLevel, disposeLevel, createDefaultLevel } from './level/LevelLoader';
 import type { LevelLoadResult, LevelData } from './level/LevelTypes';
+import { clearEvents } from './events/GameEvents';
 import {
   PLAYER_RADIUS,
   PLAYER_HALF_HEIGHT,
@@ -198,10 +199,14 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<GameState> 
     // 10. End frame — snapshot prev-state for edge detection next tick
     InputManager.endFrame();
 
-    // 11. Sync camera to player entity
+    // 11. Clear leftover game events (no consumers wired yet; future Audio,
+    //     UISystem, and particle systems will drain relevant events before this)
+    clearEvents();
+
+    // 12. Sync camera to player entity
     renderer.syncCamera(world);
 
-    // 12. Render
+    // 13. Render
     renderer.render();
   }
 
@@ -264,7 +269,7 @@ function syncEntityMeshes(
   // ── Update existing meshes + create new ones ───────────────────────────
   const projEntities = queryProjectiles(world);
   for (const eid of projEntities) {
-    if (eid === 1) continue; // skip player
+    if (hasComponent(world, eid, PlayerTag)) continue; // skip player
 
     const posX = Position.x[eid] ?? 0;
     const posY = Position.y[eid] ?? 0;

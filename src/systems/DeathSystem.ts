@@ -17,13 +17,13 @@
  */
 
 import { hasComponent, addComponent, removeComponent } from 'bitecs';
-import { Health, EnemyAI, Behavior, Collider, DespawnTimer } from '../ecs/Components';
+import { Health, EnemyAI, Behavior, Collider, DespawnTimer, PlayerTag, Position } from '../ecs/Components';
 import { queryDeadEntities } from '../ecs/queries';
 import type { EcsWorld } from '../ecs/World';
 import { emitEvent } from '../events/GameEvents';
 
 /** Time (seconds) a dead enemy entity persists before despawn. */
-const DEATH_DESPAWN_TIME = 2;
+const DEATH_DESPAWN_TIME = 2; // TODO: move to constants.ts with other magic numbers
 
 export function DeathSystem(world: EcsWorld): void {
   // Query entities with Health but no active Damage component
@@ -36,17 +36,15 @@ export function DeathSystem(world: EcsWorld): void {
     if (currentHealth > 0) continue;
 
     // ── Death trigger ─────────────────────────────────────────────────────
-    // Entity has health <= 0 — mark as dead
 
-    if (eid === 1) {
+    if (hasComponent(world, eid, PlayerTag)) {
       // Player death
       emitEvent({ type: 'player_died' });
       // Don't remove the player entity — let the game handle respawn/menu
-      // Keep components so the death screen can still read health state
       continue;
     }
 
-    // Check if this entity has EnemyAI (enemy death)
+    // Enemy death
     if (hasComponent(world, eid, EnemyAI)) {
       EnemyAI.behavior[eid] = Behavior.Death;
 
@@ -61,12 +59,18 @@ export function DeathSystem(world: EcsWorld): void {
       }
       DespawnTimer.remaining[eid] = DEATH_DESPAWN_TIME;
 
-      // Emit enemy death event
+      // Emit enemy death event with actual position
+      // TODO: read enemyType from entity definition when Phase 4 introduces
+      // typed enemy spawns; for now, use 'unknown' as placeholder
       emitEvent({
         type: 'enemy_died',
         entity: eid,
         enemyType: 'unknown',
-        position: { x: 0, y: 0, z: 0 }, // Position not read from component here
+        position: {
+          x: Position.x[eid] ?? 0,
+          y: Position.y[eid] ?? 0,
+          z: Position.z[eid] ?? 0,
+        },
       });
     }
   }

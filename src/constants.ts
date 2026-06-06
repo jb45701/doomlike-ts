@@ -33,3 +33,8 @@ export const MAX_SUBSTEPS = 4;
 
 /** Downward gravitational acceleration (units/s²). */
 export const GRAVITY_Y = -800;
+
+// ── Combat ───────────────────────────────────────────────────────────────────
+
+/** Default projectile despawn time (seconds). */
+export const PROJECTILE_DESPAWN_TIME = 5;

@@ -15,8 +15,8 @@
  *   DamageSystem(world);
  */
 
-import { removeComponent } from 'bitecs';
-import { Damage, Health } from '../ecs/Components';
+import { hasComponent, removeComponent } from 'bitecs';
+import { Health, Damage, PlayerTag, Position } from '../ecs/Components';
 import { queryDamageEntities } from '../ecs/queries';
 import type { EcsWorld } from '../ecs/World';
 import { emitEvent } from '../events/GameEvents';
@@ -36,8 +36,8 @@ export function DamageSystem(world: EcsWorld): void {
     // Check if the entity has Health
     const health = Health.current[eid];
     if (health === undefined) {
-      // No health — damage has no effect (e.g., the damage component was placed
-      // on a wall-hit result that just needs cleanup)
+      // No health — damage has no effect (e.g., projectile entity with Damage
+      // for shooter tracking but no Health component)
       removeComponent(world, eid, Damage);
       continue;
     }
@@ -58,8 +58,8 @@ export function DamageSystem(world: EcsWorld): void {
     const newHealth = Math.max(0, currentHealth - actualDamage);
     Health.current[eid] = newHealth;
 
-    // Emit event
-    if (eid === 1) {  // Player entity (always eid=1 in this project)
+    // Emit event — use PlayerTag marker to distinguish player from enemies
+    if (hasComponent(world, eid, PlayerTag)) {
       emitEvent({
         type: 'player_damaged',
         amount: actualDamage,
@@ -71,7 +71,7 @@ export function DamageSystem(world: EcsWorld): void {
         type: 'enemy_damaged',
         entity: eid,
         amount: actualDamage,
-        position: { x: 0, y: 0, z: 0 },
+        position: { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0, z: Position.z[eid] ?? 0 },
       });
     }
 

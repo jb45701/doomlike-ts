@@ -82,6 +82,25 @@ export interface RapierContext {
   addDynamicSphere: (position: Vec3, radius: number) => KinematicBodyResult;
 
   /**
+   * Return the collider handles of all colliders currently in contact with
+   * the given collider. Call after `step()` to read resolved contacts.
+   */
+  getContactColliders: (colliderHandle: number) => number[];
+
+  /**
+   * Register a mapping from a collider handle to an ECS entity ID.
+   * Used by ProjectileSystem and hitscan to resolve which entity a
+   * collision/raycast hit belongs to.
+   */
+  registerEntityCollider: (colliderHandle: number, eid: number) => void;
+
+  /**
+   * Look up the ECS entity ID for a collider handle (reverse of registerEntityCollider).
+   * Returns undefined if this collider is not mapped to any entity (e.g. a wall).
+   */
+  lookupEntityByCollider: (colliderHandle: number) => number | undefined;
+
+  /**
    * Set the next kinematic translation for a tracked rigid body.
    * Call this before `step()` to move kinematic bodies.
    */
@@ -145,6 +164,9 @@ export async function createRapierWorld(): Promise<RapierContext> {
   // Track rigid body handles → RigidBody objects for kinematic sync
   const bodyMap = new Map<number, RAPIER.RigidBody>();
 
+  // Track collider handles → ECS entity IDs for collision-to-entity resolution
+  const entityColliderMap = new Map<number, number>();
+
   // Accumulator for fixed-timestep physics stepping
   let accumulator = 0;
 
@@ -196,12 +218,15 @@ export async function createRapierWorld(): Promise<RapierContext> {
   // ── addDynamicSphere ───────────────────────────────────────────────────
   function addDynamicSphere(position: Vec3, radius: number): KinematicBodyResult {
     const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
-      .setTranslation(position.x, position.y, position.z);
+      .setTranslation(position.x, position.y, position.z)
+      .setGravityScale(0);
     const body = world.createRigidBody(bodyDesc);
     bodyMap.set(body.handle, body);
 
     const colliderDesc = RAPIER.ColliderDesc.ball(radius);
     const collider = world.createCollider(colliderDesc, body);
+    // Enable CCD on the rigid body to prevent tunneling at high speed
+    body.enableCcd(true);
     colliderMap.set(collider.handle, collider);
 
     return { colliderHandle: collider.handle, bodyHandle: body.handle };
@@ -271,6 +296,28 @@ export async function createRapierWorld(): Promise<RapierContext> {
     return { x: v.x, y: v.y, z: v.z };
   }
 
+  // ── getContactColliders ────────────────────────────────────────────────
+  function getContactColliders(colliderHandle: number): number[] {
+    const collider = colliderMap.get(colliderHandle);
+    if (!collider || !collider.isValid()) return [];
+
+    const result: number[] = [];
+    world.contactPairsWith(collider, (otherCollider) => {
+      result.push(otherCollider.handle);
+    });
+    return result;
+  }
+
+  // ── registerEntityCollider ─────────────────────────────────────────────
+  function registerEntityCollider(colliderHandle: number, eid: number): void {
+    entityColliderMap.set(colliderHandle, eid);
+  }
+
+  // ── lookupEntityByCollider ─────────────────────────────────────────────
+  function lookupEntityByCollider(colliderHandle: number): number | undefined {
+    return entityColliderMap.get(colliderHandle);
+  }
+
   // ── removeCollider ─────────────────────────────────────────────────────
   function removeCollider(handle: number): void {
     const collider = colliderMap.get(handle);
@@ -314,6 +361,7 @@ export async function createRapierWorld(): Promise<RapierContext> {
   function dispose(): void {
     colliderMap.clear();
     bodyMap.clear();
+    entityColliderMap.clear();
     world.free();
   }
 
@@ -330,6 +378,9 @@ export async function createRapierWorld(): Promise<RapierContext> {
     raycast,
     setBodyVelocity,
     getBodyVelocity,
+    getContactColliders,
+    registerEntityCollider,
+    lookupEntityByCollider,
     dispose,
   };
 }

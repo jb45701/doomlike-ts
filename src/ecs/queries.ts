@@ -119,5 +119,5 @@ export function queryFlashingEntities(world: World): Entities {
 // ── Projectiles ───────────────────────────────────────────────────────────
 
 export function queryProjectiles(world: World): Entities {
-  return query(world, [Position, Velocity, Damage, DespawnTimer]);
+  return query(world, [Position, Velocity, Collider, DespawnTimer]);
 }

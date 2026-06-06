@@ -110,12 +110,14 @@ function createPhysicsBody(
     const result = createPlayerCapsule(physics, pos);
     bodyMap.handles.set(eid, result.bodyHandle);
     bodyMap.colliders.set(eid, result.colliderHandle);
+    physics.registerEntityCollider(result.colliderHandle, eid);
   } else if (shape === ColliderShape.Sphere) {
     // Projectile sphere — future use
     const radius = Collider.radius[eid] ?? 4;
     const result = physics.addDynamicSphere(pos, radius);
     bodyMap.handles.set(eid, result.bodyHandle);
     bodyMap.colliders.set(eid, result.colliderHandle);
+    physics.registerEntityCollider(result.colliderHandle, eid);
   } else {
     // Unhandled shape (Box, Ray, etc.) — loud failure so it's not missed
     // when Phase 3 adds projectiles or enemies.
