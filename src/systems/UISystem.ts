@@ -126,7 +126,7 @@ export function UISystem(world: EcsWorld, dt: number): void {
     _armorValue.textContent = armor > 0 ? `Armor: ${Math.ceil(armor)}` : '';
   }
   if (_healthDisplay) {
-    _healthDisplay.classList.toggle('health-low', hp <= 25);
+    _healthDisplay.classList.toggle('health-low', hp <= 20);
   }
 
   // ── Ammo ────────────────────────────────────────────────────────────
@@ -146,6 +146,13 @@ export function UISystem(world: EcsWorld, dt: number): void {
     _weaponName.textContent = def.name.toUpperCase();
   }
 
+  // ── Process game events (before face decision) ──────────────────────
+  const dmgEvents = consumeEvents('player_damaged');
+  if (dmgEvents.length > 0) {
+    doDamageFlash();
+    _faceTimer = 0.4; // show damaged face for 0.4s
+  }
+
   // ── Face expression ─────────────────────────────────────────────────
   _faceTimer = Math.max(0, _faceTimer - dt);
   let faceKey = 'idle';
@@ -158,13 +165,6 @@ export function UISystem(world: EcsWorld, dt: number): void {
   }
   if (_faceDisplay) {
     _faceDisplay.textContent = FACE_STATES[faceKey] ?? ':)';
-  }
-
-  // ── Process game events ─────────────────────────────────────────────
-  const dmgEvents = consumeEvents('player_damaged');
-  if (dmgEvents.length > 0) {
-    doDamageFlash();
-    _faceTimer = 0.4; // show damaged face for 0.4s
   }
 }
 

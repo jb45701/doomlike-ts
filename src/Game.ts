@@ -54,7 +54,7 @@ import { ProjectileSystem } from './systems/ProjectileSystem';
 import { DamageSystem } from './systems/DamageSystem';
 import { DeathSystem } from './systems/DeathSystem';
 import { DespawnSystem } from './systems/DespawnSystem';
-import { updateWeaponBob } from './systems/WeaponBobSystem';
+import { updateWeaponBob, disposeWeaponBob } from './systems/WeaponBobSystem';
 import { UISystem, disposeUI } from './systems/UISystem';
 import { clearEvents } from './events/GameEvents';
 import { createRenderer } from './renderer/Renderer';
@@ -237,6 +237,7 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<GameState> 
 
   const dispose = (): void => {
     stop();
+    disposeWeaponBob();
     disposeUI();
     disposeLevel(level, physics);
     InputManager.dispose();

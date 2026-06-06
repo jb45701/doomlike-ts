@@ -45,3 +45,14 @@ export const GRAVITY_Y = -800;
 
 /** Default projectile despawn time (seconds). */
 export const PROJECTILE_DESPAWN_TIME = 5;
+
+// ── Weapon bobbing ───────────────────────────────────────────────────────────
+
+/** Base bob oscillation frequency (cycles per second at reference speed). */
+export const BOB_FREQUENCY = 10;
+
+/** Maximum bob amplitude in CSS pixels (peak-to-peak). */
+export const BOB_AMPLITUDE = 6;
+
+/** Speed at which bob reaches full amplitude (units/sec). */
+export const REFERENCE_SPEED = 200;

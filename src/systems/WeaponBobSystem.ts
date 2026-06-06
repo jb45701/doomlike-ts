@@ -14,17 +14,7 @@
 import type { EcsWorld } from '../ecs/World';
 import { Velocity } from '../ecs/Components';
 import { queryPlayerEntity } from '../ecs/queries';
-
-// ── Constants ───────────────────────────────────────────────────────────────
-
-/** Base bob oscillation frequency (cycles per second at reference speed). */
-const BOB_FREQUENCY = 10;
-
-/** Maximum bob amplitude in CSS pixels (peak-to-peak). */
-const BOB_AMPLITUDE = 6;
-
-/** Speed at which bob reaches full amplitude (units/sec). */
-const REFERENCE_SPEED = 200;
+import { BOB_FREQUENCY, BOB_AMPLITUDE, REFERENCE_SPEED } from '../constants';
 
 // ── Module-level state ──────────────────────────────────────────────────────
 
@@ -82,4 +72,16 @@ export function updateWeaponBob(world: EcsWorld, dt: number): void {
   if (_bobEl) {
     _bobEl.style.transform = `translate(${_offsetX.toFixed(1)}px, ${_offsetY.toFixed(1)}px)`;
   }
+}
+
+// ── Cleanup ─────────────────────────────────────────────────────────────────
+
+/**
+ * Dispose the WeaponBobSystem — resets module-level state for a clean restart.
+ */
+export function disposeWeaponBob(): void {
+  _bobPhase = 0;
+  _offsetX = 0;
+  _offsetY = 0;
+  _bobEl = null;
 }
