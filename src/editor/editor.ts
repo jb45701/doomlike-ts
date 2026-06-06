@@ -51,6 +51,7 @@ document.getElementById('btn-new')?.addEventListener('click', () => {
   panel.setLevel(levelData.level);
   applyLevel(levelData.level);
   panel.showSelection(null);
+  updateTitle();
   ec.render();
 });
 
@@ -61,6 +62,7 @@ document.getElementById('btn-open')?.addEventListener('click', async () => {
     panel.setLevel(data);
     applyLevel(data);
     panel.showSelection(null);
+    updateTitle();
     ec.render();
   }
 });
@@ -110,3 +112,11 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 's' && !(e.ctrlKey || e.metaKey)) { activateTool('select'); }
   else if (e.key === 'Escape') { panel.showSelection(null); }
 });
+
+// ── Title ───────────────────────────────────────────────────────────────────
+
+function updateTitle(): void {
+  const el = document.getElementById('level-name');
+  if (el) el.textContent = `MAP EDITOR — ${levelData.level.name || 'Untitled'}`;
+}
+updateTitle();
