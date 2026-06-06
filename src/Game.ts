@@ -235,11 +235,13 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<GameState> 
 
   const dispose = (): void => {
     stop();
+    disposeUI();
     disposeLevel(level, physics);
     InputManager.dispose();
     renderer.dispose();
     physics.dispose();
     entityMeshes.dispose();
+  };
   };
 
   return { world, player, renderer, physics, physicsBodies, level, running, lastTime, rafId, start, stop, dispose };
