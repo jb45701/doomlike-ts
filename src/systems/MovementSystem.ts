@@ -13,7 +13,8 @@
  *   5. Apply friction when no horizontal input
  *   6. Apply gravity when not grounded (if RigidBody present)
  *   7. Apply jump impulse when grounded + jump pressed
- *   8. Integrate velocity into position
+ *   8. Cap fall speed to terminal velocity
+ *   9. Integrate velocity into position
  *
  * Lifecycle:
  *   MovementSystem(world, deltaTime);
@@ -44,6 +45,9 @@ const GRAVITY = -800;
 
 /** Instant upward velocity on jump (units/s). */
 const JUMP_IMPULSE = 300;
+
+/** Maximum downward speed magnitude (units/s) — clamps gravity acceleration to prevent unbounded fall. */
+const TERMINAL_VELOCITY = 2000;
 
 export function MovementSystem(world: EcsWorld, deltaTime: number): void {
   const entities = query(world, [PlayerTag, InputState, Position, Velocity]);
@@ -135,10 +139,15 @@ export function MovementSystem(world: EcsWorld, deltaTime: number): void {
 
     if (jump && grounded) {
       newVy = JUMP_IMPULSE;
+      // Mark as airborne immediately so intermediate systems don't
+      // see stale grounded state before PhysicsSystem updates it.
+      RigidBody.grounded[eid] = false;
     }
 
     if (!grounded) {
       newVy += GRAVITY * deltaTime;
+      // Cap fall speed to prevent unbounded acceleration
+      newVy = Math.max(newVy, -TERMINAL_VELOCITY);
     }
 
     // ── Apply velocities to velocity store ────────────────────────────

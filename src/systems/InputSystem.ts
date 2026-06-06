@@ -67,7 +67,7 @@ export function InputSystem(world: EcsWorld, _deltaTime: number): void {
   InputState.back[eid]         = InputManager.isKeyDown('KeyS');
   InputState.left[eid]         = InputManager.isKeyDown('KeyA');
   InputState.right[eid]        = InputManager.isKeyDown('KeyD');
-  InputState.jump[eid]         = InputManager.isKeyDown('Space');
+  InputState.jump[eid]         = InputManager.wasKeyPressed('Space');
   InputState.crouch[eid]       = InputManager.isKeyDown('ShiftLeft')
                                   || InputManager.isKeyDown('ShiftRight');
   InputState.fire[eid]         = InputManager.isMouseButtonDown(0);
